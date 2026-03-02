@@ -14,6 +14,7 @@ export default function App() {
     completeSetup, resetBook,
     setCurrentPage, updatePage, addPage, deletePage, duplicatePage, movePage, changePageLayout,
     addImage, updateImage, deleteImage,
+    addOverlay, updateOverlay, deleteOverlay,
     currentPage,
   } = useBookStore();
 
@@ -163,6 +164,9 @@ export default function App() {
                 onAddImage={addImage}
                 onUpdateImage={updateImage}
                 onDeleteImage={deleteImage}
+                onAddOverlay={addOverlay}
+                onUpdateOverlay={updateOverlay}
+                onDeleteOverlay={deleteOverlay}
                 onChangeLayout={changePageLayout}
                 trimSize={book.trimSize}
                 TRIM_SIZES={TRIM_SIZES}

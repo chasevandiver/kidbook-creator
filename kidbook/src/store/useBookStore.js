@@ -3,83 +3,68 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuid } from 'uuid';
 
 export const TRIM_SIZES = {
-  '8x8':     { w: 8,   h: 8,   label: '8" × 8"',   desc: 'Square — most popular for kids' },
+  '8x8':     { w: 8,   h: 8,   label: '8" × 8"',     desc: 'Square — most popular for kids' },
   '8.5x8.5': { w: 8.5, h: 8.5, label: '8.5" × 8.5"', desc: 'Large square' },
-  '8x10':    { w: 8,   h: 10,  label: '8" × 10"',  desc: 'Portrait — great for tall illustrations' },
-  '8.5x11':  { w: 8.5, h: 11,  label: '8.5" × 11"', desc: 'Full letter size' },
-  '6x9':     { w: 6,   h: 9,   label: '6" × 9"',   desc: 'Chapter book / novel size' },
-  '11x8.5':  { w: 11,  h: 8.5, label: '11" × 8.5"', desc: 'Landscape / wide pages' },
+  '8x10':    { w: 8,   h: 10,  label: '8" × 10"',    desc: 'Portrait — great for tall illustrations' },
+  '8.5x11':  { w: 8.5, h: 11,  label: '8.5" × 11"',  desc: 'Full letter size' },
+  '6x9':     { w: 6,   h: 9,   label: '6" × 9"',     desc: 'Chapter book / novel size' },
+  '11x8.5':  { w: 11,  h: 8.5, label: '11" × 8.5"',  desc: 'Landscape / wide pages' },
 };
 
 export const FONTS = [
-  { id: 'Georgia, serif',              label: 'Classic',    sample: 'Once upon a time...' },
-  { id: '"Comic Sans MS", cursive',    label: 'Playful',    sample: 'Once upon a time...' },
-  { id: '"Palatino Linotype", serif',  label: 'Elegant',    sample: 'Once upon a time...' },
-  { id: '"Trebuchet MS", sans-serif',  label: 'Friendly',   sample: 'Once upon a time...' },
-  { id: '"Courier New", monospace',    label: 'Typewriter', sample: 'Once upon a time...' },
-  { id: 'Arial Rounded MT Bold, Arial, sans-serif', label: 'Rounded', sample: 'Once upon a time...' },
+  { id: 'Georgia, serif',                             label: 'Classic',    sample: 'Once upon a time...' },
+  { id: '"Comic Sans MS", cursive',                   label: 'Playful',    sample: 'Once upon a time...' },
+  { id: '"Palatino Linotype", serif',                 label: 'Elegant',    sample: 'Once upon a time...' },
+  { id: '"Trebuchet MS", sans-serif',                 label: 'Friendly',   sample: 'Once upon a time...' },
+  { id: '"Courier New", monospace',                   label: 'Typewriter', sample: 'Once upon a time...' },
+  { id: 'Arial Rounded MT Bold, Arial, sans-serif',  label: 'Rounded',    sample: 'Once upon a time...' },
 ];
 
 export const LAYOUTS = [
-  { id: 'text-top',    label: 'Text on Top',    desc: 'Story text at top, picture below',    textY: 6,  imgY: 35, imgH: 58 },
-  { id: 'text-bottom', label: 'Text at Bottom', desc: 'Picture fills top, text at bottom',   textY: 76, imgY: 5,  imgH: 65 },
-  { id: 'text-left',   label: 'Text on Left',   desc: 'Text left side, picture right side',  textY: 20, imgY: 5,  imgH: 90, imgX: 52, imgW: 44, textW: 44 },
-  { id: 'full-image',  label: 'Full Picture',   desc: 'Picture fills whole page, no text',   textY: 85, imgY: 0,  imgH: 100, imgX: 0, imgW: 100 },
-  { id: 'text-only',   label: 'Text Only',      desc: 'Words only — no picture on this page', textY: 15, imgY: null },
-  { id: 'title-page',  label: 'Title Page',     desc: 'Big centered title with author name', textY: 35, imgY: null, isTitlePage: true },
+  { id: 'text-only',      label: 'Text Only',          icon: '📝', desc: 'Full page of writing, no picture',    textZone: { x: 8, y: 8, w: 84, h: 84 },  imageZone: null },
+  { id: 'picture-bottom', label: 'Picture at Bottom',  icon: '🔤', desc: 'Text at top, picture below',          textZone: { x: 8, y: 8, w: 84, h: 36 },  imageZone: { x: 8, y: 50, w: 84, h: 44 } },
+  { id: 'picture-top',    label: 'Picture at Top',     icon: '🖼', desc: 'Picture at top, text below',          textZone: { x: 8, y: 68, w: 84, h: 26 }, imageZone: { x: 8, y: 6,  w: 84, h: 58 } },
+  { id: 'picture-right',  label: 'Picture on Right',   icon: '↔️', desc: 'Text on left, picture on right',      textZone: { x: 6, y: 8,  w: 44, h: 84 }, imageZone: { x: 52, y: 6, w: 44, h: 88 } },
+  { id: 'full-picture',   label: 'Full Picture',        icon: '🖼️', desc: 'Picture fills the whole page',        textZone: null,                           imageZone: { x: 0, y: 0, w: 100, h: 100 } },
+  { id: 'title-page',     label: 'Title Page',         icon: '📖', desc: 'Centered title and author name',      textZone: { x: 10, y: 30, w: 80, h: 40 }, imageZone: null, isTitlePage: true },
 ];
 
-export const BG_COLORS = [
-  '#ffffff', '#fffdf5', '#f5f0ff', '#f0f8ff', '#fff0f5',
-  '#f0fff4', '#fffbf0', '#f5f5f5', '#1a1a2e', '#0d2137',
+// Text overlay background style presets
+export const OVERLAY_STYLES = [
+  { id: 'none',        label: 'No Background',    bg: 'transparent',              textColor: '#ffffff', shadow: '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 3px rgba(0,0,0,0.7)' },
+  { id: 'dark-band',   label: 'Dark Band',        bg: 'rgba(0,0,0,0.55)',         textColor: '#ffffff', shadow: 'none' },
+  { id: 'light-band',  label: 'Light Band',       bg: 'rgba(255,255,255,0.82)',   textColor: '#1a1a2e', shadow: 'none' },
+  { id: 'dark-solid',  label: 'Dark Box',         bg: 'rgba(20,20,40,0.88)',      textColor: '#ffffff', shadow: 'none' },
+  { id: 'light-solid', label: 'White Box',        bg: 'rgba(255,255,255,0.95)',   textColor: '#1a1a2e', shadow: 'none' },
+  { id: 'shadow-only', label: 'Shadow Only',      bg: 'transparent',              textColor: '#ffffff', shadow: '2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000' },
 ];
 
 const BLEED = 0.125;
 const MARGIN = 0.5;
+const MAX_UNDO = 30;
 
-function makePage(layoutId = 'text-bottom', trimSize = '8x8') {
-  const layout = LAYOUTS.find(l => l.id === layoutId) || LAYOUTS[1];
-  const { w: trimW, h: trimH } = TRIM_SIZES[trimSize];
-  const marginPctX = (MARGIN / trimW) * 100;
-  const marginPctY = (MARGIN / trimH) * 100;
-
-  const images = [];
-  if (layout.imgY !== null && layout.imgY !== undefined) {
-    images.push({
-      id: uuid(),
-      src: null,
-      x: layout.imgX ?? marginPctX,
-      y: layout.imgY ?? marginPctY,
-      w: layout.imgW ?? (100 - marginPctX * 2),
-      h: layout.imgH ?? 55,
-      locked: false,
-      zIndex: 1,
-      placeholder: true,
-    });
-  }
-
+export function makePage(layoutId = 'text-only', trimSize = '8x8', fontFamily = 'Georgia, serif') {
+  const layout = LAYOUTS.find(l => l.id === layoutId) || LAYOUTS[0];
+  const tz = layout.textZone;
+  const iz = layout.imageZone;
+  const images = iz ? [{ id: uuid(), src: null, x: iz.x, y: iz.y, w: iz.w, h: iz.h, locked: false, zIndex: 1, placeholder: true }] : [];
   return {
     id: uuid(),
     layoutId,
     text: '',
-    fontSize: layoutId === 'title-page' ? 48 : 28,
-    fontFamily: 'Georgia, serif',
+    fontSize: layoutId === 'title-page' ? 44 : 24,
+    fontFamily,
     textColor: '#1a1a2e',
     textAlign: layoutId === 'title-page' ? 'center' : 'left',
-    textPosition: {
-      x: layout.textW ? marginPctX : marginPctX,
-      y: layout.textY ?? marginPctY,
-      w: layout.textW ?? (100 - marginPctX * 2),
-    },
+    textZone: tz ? { ...tz } : null,
     images,
+    overlays: [], // free-floating text boxes on top of images
     bgColor: '#ffffff',
     isTitlePage: layout.isTitlePage || false,
   };
 }
 
-export { BLEED, MARGIN, makePage };
-
-const MAX_UNDO = 30;
+export { BLEED, MARGIN };
 
 export function useBookStore() {
   const [book, setBook] = useState(() => {
@@ -87,33 +72,28 @@ export function useBookStore() {
       const saved = localStorage.getItem('kidbook_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.pages) return { ...parsed, setupDone: true };
+        if (parsed?.pages?.length && parsed.setupDone) {
+          // Migrate old pages that don't have overlays field
+          parsed.pages = parsed.pages.map(p => ({ overlays: [], ...p }));
+          return parsed;
+        }
       }
     } catch (e) {}
-    return {
-      setupDone: false,
-      title: '',
-      authorName: '',
-      trimSize: '8x8',
-      fontFamily: 'Georgia, serif',
-      pages: [],
-      currentPageIdx: 0,
-    };
+    return { setupDone: false, title: '', authorName: '', trimSize: '8x8', fontFamily: 'Georgia, serif', pages: [], currentPageIdx: 0 };
   });
 
   const historyRef = useRef([]);
   const historyIdxRef = useRef(-1);
 
-  // Push to undo stack
-  const pushHistory = useCallback((newBook) => {
+  const pushHistory = useCallback((nb) => {
     const stack = historyRef.current.slice(0, historyIdxRef.current + 1);
-    stack.push(newBook);
+    stack.push(JSON.parse(JSON.stringify(nb)));
     if (stack.length > MAX_UNDO) stack.shift();
     historyRef.current = stack;
     historyIdxRef.current = stack.length - 1;
   }, []);
 
-  const setBookWithHistory = useCallback((updater) => {
+  const setBookSave = useCallback((updater) => {
     setBook(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       pushHistory(next);
@@ -124,187 +104,135 @@ export function useBookStore() {
   const undo = useCallback(() => {
     if (historyIdxRef.current > 0) {
       historyIdxRef.current -= 1;
-      const prev = historyRef.current[historyIdxRef.current];
-      setBook(prev);
+      setBook(historyRef.current[historyIdxRef.current]);
     }
   }, []);
 
-  const canUndo = historyIdxRef.current > 0;
-
-  // Auto-save
   useEffect(() => {
-    try {
-      localStorage.setItem('kidbook_v3', JSON.stringify(book));
-    } catch (e) {
-      // storage full — silently fail
-    }
+    try { localStorage.setItem('kidbook_v3', JSON.stringify(book)); } catch (e) {}
   }, [book]);
 
-  // ── SETUP WIZARD ──
   const completeSetup = useCallback(({ title, authorName, trimSize, fontFamily, pageCount }) => {
     const pages = [];
-    // Title page first
-    const titlePg = makePage('title-page', trimSize);
-    titlePg.text = title + (authorName ? '\n\nBy ' + authorName : '');
-    titlePg.fontFamily = fontFamily;
-    pages.push(titlePg);
-    // Blank story pages
-    const layouts = ['text-bottom', 'text-top', 'text-bottom', 'text-left', 'text-bottom'];
-    for (let i = 1; i < pageCount; i++) {
-      const pg = makePage(layouts[i % layouts.length] || 'text-bottom', trimSize);
-      pg.fontFamily = fontFamily;
-      pages.push(pg);
-    }
-    const newBook = { setupDone: true, title, authorName, trimSize, fontFamily, pages, currentPageIdx: 0 };
-    setBook(newBook);
-    pushHistory(newBook);
+    const tp = makePage('title-page', trimSize, fontFamily);
+    tp.text = title + (authorName ? '\n\nBy ' + authorName : '');
+    pages.push(tp);
+    for (let i = 1; i < pageCount; i++) pages.push(makePage('text-only', trimSize, fontFamily));
+    const nb = { setupDone: true, title, authorName, trimSize, fontFamily, pages, currentPageIdx: 0 };
+    setBook(nb); pushHistory(nb);
   }, [pushHistory]);
 
   const resetBook = useCallback(() => {
     const blank = { setupDone: false, title: '', authorName: '', trimSize: '8x8', fontFamily: 'Georgia, serif', pages: [], currentPageIdx: 0 };
-    setBook(blank);
-    historyRef.current = [];
-    historyIdxRef.current = -1;
+    setBook(blank); historyRef.current = []; historyIdxRef.current = -1;
     localStorage.removeItem('kidbook_v3');
   }, []);
 
-  // ── PAGE OPS ──
-  const setCurrentPage = useCallback((idx) => {
-    setBook(b => ({ ...b, currentPageIdx: idx }));
-  }, []);
+  const setCurrentPage = useCallback((idx) => setBook(b => ({ ...b, currentPageIdx: idx })), []);
 
   const updatePage = useCallback((pageId, updates) => {
-    setBookWithHistory(b => ({
-      ...b,
-      pages: b.pages.map(p => p.id === pageId ? { ...p, ...updates } : p)
-    }));
-  }, [setBookWithHistory]);
+    setBookSave(b => ({ ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, ...updates } : p) }));
+  }, [setBookSave]);
 
-  const addPage = useCallback((layoutId = 'text-bottom') => {
-    setBookWithHistory(b => {
-      const pg = makePage(layoutId, b.trimSize);
-      pg.fontFamily = b.fontFamily;
+  const addPage = useCallback((layoutId = 'text-only') => {
+    setBookSave(b => {
+      const pg = makePage(layoutId, b.trimSize, b.fontFamily);
       const newPages = [...b.pages, pg];
       return { ...b, pages: newPages, currentPageIdx: newPages.length - 1 };
     });
-  }, [setBookWithHistory]);
+  }, [setBookSave]);
 
   const deletePage = useCallback((pageId) => {
-    setBookWithHistory(b => {
+    setBookSave(b => {
       if (b.pages.length <= 1) return b;
       const idx = b.pages.findIndex(p => p.id === pageId);
       const newPages = b.pages.filter(p => p.id !== pageId);
       return { ...b, pages: newPages, currentPageIdx: Math.max(0, Math.min(idx, newPages.length - 1)) };
     });
-  }, [setBookWithHistory]);
+  }, [setBookSave]);
 
   const duplicatePage = useCallback((pageId) => {
-    setBookWithHistory(b => {
+    setBookSave(b => {
       const idx = b.pages.findIndex(p => p.id === pageId);
-      const copy = { ...b.pages[idx], id: uuid(), images: b.pages[idx].images.map(img => ({ ...img, id: uuid() })) };
-      const newPages = [...b.pages];
-      newPages.splice(idx + 1, 0, copy);
+      const copy = { ...b.pages[idx], id: uuid(), images: b.pages[idx].images.map(img => ({ ...img, id: uuid() })), overlays: (b.pages[idx].overlays||[]).map(o => ({ ...o, id: uuid() })) };
+      const newPages = [...b.pages]; newPages.splice(idx + 1, 0, copy);
       return { ...b, pages: newPages, currentPageIdx: idx + 1 };
     });
-  }, [setBookWithHistory]);
+  }, [setBookSave]);
 
   const movePage = useCallback((fromIdx, toIdx) => {
-    setBookWithHistory(b => {
+    setBookSave(b => {
       const pages = [...b.pages];
       const [removed] = pages.splice(fromIdx, 1);
       pages.splice(toIdx, 0, removed);
       return { ...b, pages, currentPageIdx: toIdx };
     });
-  }, [setBookWithHistory]);
+  }, [setBookSave]);
 
   const changePageLayout = useCallback((pageId, layoutId) => {
-    setBookWithHistory(b => {
-      const pg = b.pages.find(p => p.id === pageId);
-      if (!pg) return b;
-      const newPg = makePage(layoutId, b.trimSize);
-      const merged = {
-        ...newPg,
-        id: pg.id,
-        text: pg.text,
-        fontSize: pg.fontSize,
-        fontFamily: pg.fontFamily || b.fontFamily,
-        textColor: pg.textColor,
-        textAlign: pg.textAlign,
-        bgColor: pg.bgColor,
-        // keep real images, drop placeholder
-        images: [
-          ...newPg.images,
-          ...pg.images.filter(img => !img.placeholder),
-        ],
-      };
-      return { ...b, pages: b.pages.map(p => p.id === pageId ? merged : p) };
+    setBookSave(b => {
+      const oldPage = b.pages.find(p => p.id === pageId);
+      if (!oldPage) return b;
+      const layout = LAYOUTS.find(l => l.id === layoutId);
+      const iz = layout?.imageZone; const tz = layout?.textZone;
+      const realImages = oldPage.images.filter(img => !img.placeholder && img.src);
+      const placeholders = iz ? [{ id: uuid(), src: null, x: iz.x, y: iz.y, w: iz.w, h: iz.h, locked: false, zIndex: 1, placeholder: true }] : [];
+      return { ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, layoutId, textZone: tz ? { ...tz } : null, images: [...placeholders, ...realImages], isTitlePage: layout?.isTitlePage || false } : p) };
     });
-  }, [setBookWithHistory]);
+  }, [setBookSave]);
 
-  // ── IMAGE OPS ──
   const addImage = useCallback((pageId, imageData) => {
-    setBookWithHistory(b => {
+    setBookSave(b => {
       const pg = b.pages.find(p => p.id === pageId);
       if (!pg) return b;
-      // Replace first placeholder if exists
       const placeholder = pg.images.find(img => img.placeholder);
       if (placeholder) {
-        return {
-          ...b,
-          pages: b.pages.map(p => p.id === pageId ? {
-            ...p,
-            images: p.images.map(img => img.id === placeholder.id ? { ...img, src: imageData, placeholder: false } : img)
-          } : p)
-        };
+        return { ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, images: p.images.map(img => img.id === placeholder.id ? { ...img, src: imageData, placeholder: false } : img) } : p) };
       }
-      // Otherwise add new
       const img = { id: uuid(), src: imageData, x: 10, y: 10, w: 80, h: 60, locked: false, zIndex: Date.now() };
       return { ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, images: [...p.images, img] } : p) };
     });
-  }, [setBookWithHistory]);
+  }, [setBookSave]);
 
   const updateImage = useCallback((pageId, imageId, updates) => {
-    setBookWithHistory(b => ({
-      ...b,
-      pages: b.pages.map(p =>
-        p.id === pageId
-          ? { ...p, images: p.images.map(img => img.id === imageId ? { ...img, ...updates } : img) }
-          : p
-      )
-    }));
-  }, [setBookWithHistory]);
+    setBookSave(b => ({ ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, images: p.images.map(img => img.id === imageId ? { ...img, ...updates } : img) } : p) }));
+  }, [setBookSave]);
 
   const deleteImage = useCallback((pageId, imageId) => {
-    setBookWithHistory(b => ({
-      ...b,
-      pages: b.pages.map(p =>
-        p.id === pageId ? { ...p, images: p.images.filter(img => img.id !== imageId) } : p
-      )
-    }));
-  }, [setBookWithHistory]);
+    setBookSave(b => ({ ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, images: p.images.filter(img => img.id !== imageId) } : p) }));
+  }, [setBookSave]);
+
+  // ── Overlay (text-on-image) operations ────────────────────────────────────
+  const addOverlay = useCallback((pageId) => {
+    const overlay = {
+      id: uuid(),
+      text: '',
+      x: 10, y: 35, w: 80, h: 30,   // % of page
+      fontSize: 28,
+      fontFamily: 'Georgia, serif',
+      textColor: '#ffffff',
+      textAlign: 'center',
+      styleId: 'dark-band',           // default readable style
+      zIndex: Date.now() + 100,
+    };
+    setBookSave(b => ({ ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, overlays: [...(p.overlays||[]), overlay] } : p) }));
+  }, [setBookSave]);
+
+  const updateOverlay = useCallback((pageId, overlayId, updates) => {
+    setBookSave(b => ({ ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, overlays: (p.overlays||[]).map(o => o.id === overlayId ? { ...o, ...updates } : o) } : p) }));
+  }, [setBookSave]);
+
+  const deleteOverlay = useCallback((pageId, overlayId) => {
+    setBookSave(b => ({ ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, overlays: (p.overlays||[]).filter(o => o.id !== overlayId) } : p) }));
+  }, [setBookSave]);
 
   return {
-    book,
-    TRIM_SIZES,
-    FONTS,
-    LAYOUTS,
-    BG_COLORS,
-    BLEED,
-    MARGIN,
-    undo,
-    canUndo,
-    completeSetup,
-    resetBook,
-    setCurrentPage,
-    updatePage,
-    addPage,
-    deletePage,
-    duplicatePage,
-    movePage,
-    changePageLayout,
-    addImage,
-    updateImage,
-    deleteImage,
+    book, TRIM_SIZES, FONTS, LAYOUTS, OVERLAY_STYLES, BLEED, MARGIN,
+    undo, canUndo: historyIdxRef.current > 0,
+    completeSetup, resetBook,
+    setCurrentPage, updatePage, addPage, deletePage, duplicatePage, movePage, changePageLayout,
+    addImage, updateImage, deleteImage,
+    addOverlay, updateOverlay, deleteOverlay,
     currentPage: book.pages[book.currentPageIdx] || null,
   };
 }
