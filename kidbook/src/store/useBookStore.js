@@ -3,9 +3,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
 
 const TRIM_SIZES = {
+  '6x9':     { w: 6,   h: 9,   label: '6" × 9" Novel' },
+  '7x10':    { w: 7,   h: 10,  label: '7" × 10" Portrait' },
+  '7.5x7.5': { w: 7.5, h: 7.5, label: '7.5" × 7.5" Square' },
+  '8x8':     { w: 8,   h: 8,   label: '8" × 8" Square' },
   '8.5x8.5': { w: 8.5, h: 8.5, label: '8.5" × 8.5" Square' },
   '8x10':    { w: 8,   h: 10,  label: '8" × 10" Portrait' },
   '8.5x11':  { w: 8.5, h: 11,  label: '8.5" × 11" Letter' },
+  '11x8.5':  { w: 11,  h: 8.5, label: '11" × 8.5" Landscape' },
 };
 
 const BLEED = 0.125; // inches
@@ -18,7 +23,7 @@ function makeBlankPage() {
     fontSize: 28,
     textColor: '#1a1a2e',
     textAlign: 'center',
-    textPosition: { x: 50, y: 78 }, // percent from top-left
+    textPosition: { x: 50, y: 10 }, // percent — starts near top inside margin
     images: [],
     bgColor: '#ffffff',
   };

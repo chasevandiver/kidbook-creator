@@ -9,7 +9,7 @@ import { exportToPDF } from './utils/exportPDF';
 export default function App() {
   const {
     book, TRIM_SIZES, BLEED, MARGIN,
-    setCurrentPage, updatePage, addPage, deletePage, duplicatePage,
+    setCurrentPage, updatePage, addPage, deletePage, duplicatePage, movePage,
     addImage, updateImage, deleteImage,
     setTrimSize, setTitle,
     currentPage,
@@ -32,34 +32,39 @@ export default function App() {
   };
 
   const handleSave = () => {
-    // autosave already happens, just flash confirmation
-    setSaveFlash(true);
-    setTimeout(() => setSaveFlash(false), 1800);
+    try {
+      localStorage.setItem('kidbook_autosave', JSON.stringify(book));
+      setSaveFlash(true);
+      setTimeout(() => setSaveFlash(false), 2000);
+    } catch (e) {
+      alert('Could not save — your browser storage may be full.');
+    }
   };
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(160deg, #0f1320 0%, #1a2040 100%)',
+      background: 'linear-gradient(160deg, #0c1020 0%, #161d35 100%)',
       fontFamily: "'Segoe UI', Arial, sans-serif",
-      padding: '16px 20px',
+      padding: '14px 18px',
       boxSizing: 'border-box',
     }}>
       {preview && (
         <PreviewMode book={book} TRIM_SIZES={TRIM_SIZES} onClose={() => setPreview(false)} />
       )}
 
-      {/* TOP BAR */}
+      {/* ── TOP BAR ── */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 20,
+        marginBottom: 16,
         flexWrap: 'wrap',
-        gap: 12,
+        gap: 10,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 32 }}>📚</span>
+        {/* Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 30 }}>📚</span>
           {editingTitle ? (
             <input
               autoFocus
@@ -68,118 +73,94 @@ export default function App() {
               onBlur={() => setEditingTitle(false)}
               onKeyDown={e => e.key === 'Enter' && setEditingTitle(false)}
               style={{
-                fontSize: 26,
-                fontWeight: 800,
-                background: 'rgba(255,255,255,0.1)',
-                color: '#fff',
-                border: '2px solid #4a90d9',
-                borderRadius: 8,
-                padding: '4px 12px',
-                outline: 'none',
-                minWidth: 200,
+                fontSize: 22, fontWeight: 800,
+                background: 'rgba(255,255,255,0.1)', color: '#fff',
+                border: '2px solid #4a90d9', borderRadius: 8,
+                padding: '4px 12px', outline: 'none', minWidth: 220,
               }}
             />
           ) : (
             <h1
               onClick={() => setEditingTitle(true)}
+              title="Click to rename your book"
               style={{
-                margin: 0,
-                color: '#fff',
-                fontSize: 26,
-                fontWeight: 800,
-                cursor: 'text',
-                padding: '4px 10px',
-                borderRadius: 8,
+                margin: 0, color: '#fff', fontSize: 22, fontWeight: 800,
+                cursor: 'text', padding: '4px 10px', borderRadius: 8,
                 border: '2px solid transparent',
-                transition: 'border-color 0.2s',
               }}
-              onMouseEnter={e => e.target.style.borderColor = 'rgba(74,144,217,0.4)'}
-              onMouseLeave={e => e.target.style.borderColor = 'transparent'}
-              title="Click to edit book title"
             >
               {book.title}
-              <span style={{ fontSize: 14, marginLeft: 8, opacity: 0.5 }}>✏️</span>
+              <span style={{ fontSize: 13, marginLeft: 8, opacity: 0.45 }}>✏️ rename</span>
             </h1>
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Save */}
-          <button onClick={handleSave} style={actionBtn(saveFlash ? '#27ae60' : '#34495e')}>
-            {saveFlash ? '✅ Saved!' : '💾 Save'}
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button onClick={handleSave} style={topBtn(saveFlash ? '#1e7e44' : '#2c3e50')}>
+            {saveFlash ? '✅ Saved!' : '💾 Save My Book'}
           </button>
-
-          {/* Settings */}
-          <button onClick={() => setShowSettings(s => !s)} style={actionBtn('#7b52e8')}>
-            ⚙️ Settings
+          <button onClick={() => setShowSettings(s => !s)} style={topBtn('#5b3fa8')}>
+            ⚙️ Book Settings
           </button>
-
-          {/* Preview */}
-          <button onClick={() => setPreview(true)} style={actionBtn('#f39c12')}>
-            👁 Preview Book
+          <button onClick={() => setPreview(true)} style={topBtn('#c47a00')}>
+            👁️ Preview Book
           </button>
-
-          {/* Export */}
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            style={actionBtn(exporting ? '#555' : '#e74c3c', true)}
-          >
-            {exporting ? '⏳ Creating PDF...' : '📥 Export to PDF'}
+          <button onClick={handleExport} disabled={exporting} style={topBtn(exporting ? '#444' : '#b52020', true)}>
+            {exporting ? '⏳ Creating PDF...' : '📥 Download PDF for Amazon'}
           </button>
         </div>
       </div>
 
-      {/* Settings panel */}
+      {/* ── SETTINGS PANEL ── */}
       {showSettings && (
         <div style={{
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 14,
-          padding: 20,
-          marginBottom: 20,
-          display: 'flex',
-          gap: 24,
-          alignItems: 'center',
-          flexWrap: 'wrap',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 14, padding: '18px 22px', marginBottom: 18,
         }}>
-          <div>
-            <div style={{ color: '#aab', fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
-              📐 BOOK SIZE (KDP Trim)
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {Object.entries(TRIM_SIZES).map(([key, val]) => (
-                <button
-                  key={key}
-                  onClick={() => setTrimSize(key)}
-                  style={{
-                    background: book.trimSize === key ? '#4a90d9' : 'rgba(255,255,255,0.08)',
-                    color: '#fff',
-                    border: book.trimSize === key ? '2px solid #4a90d9' : '2px solid transparent',
-                    borderRadius: 10,
-                    padding: '10px 16px',
-                    fontSize: 15,
-                    cursor: 'pointer',
-                    fontWeight: book.trimSize === key ? 800 : 400,
-                  }}
-                >
-                  {val.label}
-                </button>
-              ))}
-            </div>
+          <div style={{ color: '#8899bb', fontSize: 12, fontWeight: 800, letterSpacing: 1.2, marginBottom: 12, textTransform: 'uppercase' }}>
+            📐 Book Size — Choose the trim size for your Amazon KDP book
           </div>
-          <div style={{ color: '#667', fontSize: 13, lineHeight: 1.6 }}>
-            <strong style={{ color: '#aab' }}>For Amazon KDP:</strong><br />
-            • Use 300 DPI images for best print quality<br />
-            • Images will print to the bleed edge<br />
-            • Keep text inside the green safe zone
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {Object.entries(TRIM_SIZES).map(([key, val]) => (
+              <button
+                key={key}
+                onClick={() => setTrimSize(key)}
+                style={{
+                  background: book.trimSize === key ? '#4a90d9' : 'rgba(255,255,255,0.07)',
+                  color: '#fff',
+                  border: book.trimSize === key ? '2px solid #4a90d9' : '2px solid rgba(255,255,255,0.1)',
+                  borderRadius: 10, padding: '10px 16px', fontSize: 14,
+                  cursor: 'pointer', fontWeight: book.trimSize === key ? 800 : 400,
+                }}
+              >
+                {val.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginTop: 14, color: '#556', fontSize: 12, lineHeight: 1.8 }}>
+            <strong style={{ color: '#778' }}>Tips for Amazon KDP:</strong>{' '}
+            Use 300 DPI images for best print quality. Keep all text inside the green safe zone.
+            The most popular children's book sizes are 8×8, 8.5×8.5, and 8×10.
           </div>
         </div>
       )}
 
-      {/* MAIN EDITOR */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {/* Page Strip */}
+      {/* ── AUTO-SAVE NOTICE ── */}
+      <div style={{
+        background: 'rgba(30,120,70,0.15)',
+        border: '1px solid rgba(30,180,80,0.2)',
+        borderRadius: 8, padding: '7px 14px', marginBottom: 14,
+        fontSize: 12, color: '#4a9', display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        ✅ <strong>Your book saves automatically</strong> as you work — you will not lose your progress if you close this tab.
+        Click "Save My Book" anytime to make sure.
+      </div>
+
+      {/* ── MAIN EDITOR ── */}
+      <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
+        {/* Page strip sidebar */}
         <PageStrip
           pages={book.pages}
           currentIdx={book.currentPageIdx}
@@ -187,31 +168,30 @@ export default function App() {
           onAdd={addPage}
           onDelete={deletePage}
           onDuplicate={duplicatePage}
+          onMove={movePage}
           trimSize={book.trimSize}
           TRIM_SIZES={TRIM_SIZES}
         />
 
-        {/* Editor area */}
+        {/* Editor */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            background: 'rgba(255,255,255,0.04)',
-            borderRadius: 14,
-            padding: 20,
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.03)',
+            borderRadius: 14, padding: 18,
+            border: '1px solid rgba(255,255,255,0.07)',
           }}>
             <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 16,
-              flexWrap: 'wrap',
-              gap: 8,
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8,
             }}>
-              <div style={{ color: '#aab', fontSize: 14, fontWeight: 700 }}>
-                PAGE {book.currentPageIdx + 1} of {book.pages.length}
+              <div style={{ color: '#8899bb', fontSize: 13, fontWeight: 700 }}>
+                Editing Page {book.currentPageIdx + 1} of {book.pages.length}
+                <span style={{ color: '#4a6', marginLeft: 8, fontSize: 12 }}>
+                  ({TRIM_SIZES[book.trimSize].label})
+                </span>
               </div>
-              <div style={{ color: '#556', fontSize: 13 }}>
-                💡 Double-tap text to edit • Drag images to move • Pull corners to resize
+              <div style={{ color: '#445', fontSize: 12 }}>
+                💡 Double-click the text area to type · Drag images to move · Pull blue corners to resize
               </div>
             </div>
 
@@ -232,26 +212,16 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <div style={{
-        textAlign: 'center', marginTop: 28,
-        color: '#334', fontSize: 12, letterSpacing: 0.5,
-      }}>
-        📖 KidBook Creator — Your book saves automatically • Export as PDF for Amazon KDP
+      <div style={{ textAlign:'center', marginTop:24, color:'#2a3', fontSize:11 }}>
+        📖 KidBook Creator · Your book is saved in this browser · Export as PDF to upload to Amazon KDP
       </div>
     </div>
   );
 }
 
-const actionBtn = (bg, primary = false) => ({
-  background: bg,
-  color: 'white',
-  border: 'none',
-  borderRadius: 12,
-  padding: primary ? '12px 22px' : '10px 18px',
-  fontSize: primary ? 16 : 15,
-  fontWeight: 700,
-  cursor: 'pointer',
-  boxShadow: `0 4px 14px ${bg}44`,
-  transition: 'opacity 0.15s',
-  whiteSpace: 'nowrap',
+const topBtn = (bg, large = false) => ({
+  background: bg, color: 'white', border: 'none',
+  borderRadius: 11, padding: large ? '12px 20px' : '10px 16px',
+  fontSize: large ? 15 : 14, fontWeight: 700, cursor: 'pointer',
+  boxShadow: '0 3px 12px rgba(0,0,0,0.25)', whiteSpace: 'nowrap',
 });
