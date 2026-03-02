@@ -1,184 +1,117 @@
 // components/PageStrip.js
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
+import { LAYOUTS } from '../store/useBookStore';
 
 export default function PageStrip({ pages, currentIdx, onSelect, onAdd, onDelete, onDuplicate, onMove, trimSize, TRIM_SIZES }) {
   const { w, h } = TRIM_SIZES[trimSize];
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
-
-  const handleDragStart = (e, idx) => {
-    setDragIdx(idx);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, idx) => {
-    e.preventDefault();
-    setOverIdx(idx);
-  };
-
-  const handleDrop = (e, idx) => {
-    e.preventDefault();
-    if (dragIdx !== null && dragIdx !== idx) {
-      onMove(dragIdx, idx);
-    }
-    setDragIdx(null);
-    setOverIdx(null);
-  };
-
-  const handleDragEnd = () => {
-    setDragIdx(null);
-    setOverIdx(null);
-  };
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   return (
     <div style={{
-      width: 148,
-      flexShrink: 0,
-      background: '#1a1e2e',
-      borderRadius: 14,
-      padding: '14px 10px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 8,
-      maxHeight: '82vh',
-      overflowY: 'auto',
-      overflowX: 'visible',
+      width: 152, flexShrink: 0,
+      background: '#131826',
+      borderRadius: 16, padding: '12px 10px',
+      display: 'flex', flexDirection: 'column', gap: 6,
+      maxHeight: '84vh', overflowY: 'auto', overflowX: 'visible',
     }}>
-      {/* Header */}
-      <div style={{
-        color: '#8899bb',
-        fontSize: 11,
-        fontWeight: 800,
-        textAlign: 'center',
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
-        marginBottom: 4,
-      }}>
-        All Pages
+      <div style={{ color: '#556', fontSize: 10, fontWeight: 800, textAlign: 'center', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>
+        {pages.length} Pages
       </div>
 
       {pages.map((page, idx) => (
-        <div
-          key={page.id}
+        <div key={page.id}
           draggable
-          onDragStart={(e) => handleDragStart(e, idx)}
-          onDragOver={(e) => handleDragOver(e, idx)}
-          onDrop={(e) => handleDrop(e, idx)}
-          onDragEnd={handleDragEnd}
-          style={{
-            opacity: dragIdx === idx ? 0.4 : 1,
-            borderTop: overIdx === idx && dragIdx !== idx ? '3px solid #4a90d9' : '3px solid transparent',
-            transition: 'opacity 0.15s',
-          }}
+          onDragStart={e => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
+          onDragOver={e => { e.preventDefault(); setOverIdx(idx); }}
+          onDrop={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== idx) onMove(dragIdx, idx); setDragIdx(null); setOverIdx(null); }}
+          onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+          style={{ opacity: dragIdx === idx ? 0.35 : 1, borderTop: overIdx === idx && dragIdx !== idx ? '3px solid #4a90d9' : '3px solid transparent' }}
         >
-          {/* Page thumbnail */}
-          <div
-            onClick={() => onSelect(idx)}
-            style={{
-              aspectRatio: `${w}/${h}`,
-              background: page.bgColor || '#fff',
-              borderRadius: 7,
-              cursor: 'pointer',
-              border: idx === currentIdx ? '3px solid #4a90d9' : '3px solid rgba(255,255,255,0.08)',
-              overflow: 'hidden',
-              position: 'relative',
-              boxShadow: idx === currentIdx
-                ? '0 0 0 2px #4a90d9, 0 4px 14px rgba(74,144,217,0.3)'
-                : '0 2px 8px rgba(0,0,0,0.4)',
-            }}
-          >
-            {/* Thumbnail images */}
-            {page.images.map(img => (
-              <img key={img.id} src={img.src} alt=""
-                style={{
-                  position:'absolute', left:`${img.x}%`, top:`${img.y}%`,
-                  width:`${img.w}%`, height:`${img.h}%`,
-                  objectFit:'contain', pointerEvents:'none',
-                }}
-              />
+          {/* Thumbnail */}
+          <div onClick={() => onSelect(idx)} style={{
+            aspectRatio: `${w}/${h}`, background: page.bgColor || '#fff',
+            borderRadius: 7, cursor: 'pointer', position: 'relative', overflow: 'hidden',
+            border: idx === currentIdx ? '3px solid #4a90d9' : '3px solid rgba(255,255,255,0.06)',
+            boxShadow: idx === currentIdx ? '0 0 0 2px #4a90d9, 0 4px 14px rgba(74,144,217,0.25)' : '0 2px 8px rgba(0,0,0,0.4)',
+          }}>
+            {page.images.filter(img => img.src).map(img => (
+              <img key={img.id} src={img.src} alt="" style={{ position:'absolute', left:`${img.x}%`, top:`${img.y}%`, width:`${img.w}%`, height:`${img.h}%`, objectFit:'contain', pointerEvents:'none' }} />
             ))}
-            {/* Thumbnail text */}
             {page.text && (
               <div style={{
-                position:'absolute', top:'8%', left:'5%', right:'5%',
-                fontSize:5, color: page.textColor||'#000',
-                textAlign: page.textAlign||'center',
-                overflow:'hidden', lineHeight:1.2,
-                fontFamily:'Georgia, serif',
-                display:'-webkit-box', WebkitLineClamp:3,
-                WebkitBoxOrient:'vertical',
-              }}>
-                {page.text}
-              </div>
+                position:'absolute', top:'6%', left:'5%', right:'5%',
+                fontSize: 5, color: page.textColor||'#000',
+                fontFamily: page.fontFamily || 'Georgia, serif',
+                overflow:'hidden', lineHeight:1.3,
+                display:'-webkit-box', WebkitLineClamp:4, WebkitBoxOrient:'vertical',
+              }}>{page.text}</div>
             )}
-            {/* Page number badge */}
-            <div style={{
-              position:'absolute', bottom:2, right:4,
-              fontSize:7, color:'rgba(0,0,0,0.4)', fontWeight:800,
-            }}>
-              {idx + 1}
-            </div>
-            {/* Drag handle indicator */}
-            <div style={{
-              position:'absolute', top:2, left:'50%', transform:'translateX(-50%)',
-              fontSize:8, color:'rgba(0,0,0,0.2)', cursor:'grab', letterSpacing:1,
-            }} title="Drag to reorder">
-              ⠿
-            </div>
+            <div style={{ position:'absolute', bottom:2, right:4, fontSize:7, color:'rgba(0,0,0,0.35)', fontWeight:800 }}>{idx+1}</div>
+            <div style={{ position:'absolute', top:2, left:'50%', transform:'translateX(-50%)', fontSize:9, color:'rgba(0,0,0,0.18)', cursor:'grab' }} title="Drag to reorder">⠿</div>
           </div>
 
-          {/* Action buttons — only show for selected page */}
+          {/* Actions for selected page */}
           {idx === currentIdx && (
-            <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:5 }}>
-              <button
-                onClick={() => onDuplicate(page.id)}
-                style={pageActionBtn('#3a6fa8')}
-                title="Make a copy of this page"
-              >
-                Copy This Page
-              </button>
+            <div style={{ display:'flex', flexDirection:'column', gap:3, marginTop:4 }}>
+              <button onClick={() => onDuplicate(page.id)} style={pageBtn('#2a4a7a')}>Copy This Page</button>
               {pages.length > 1 && (
                 <button
-                  onClick={() => {
-                    if (window.confirm(`Delete page ${idx + 1}? This cannot be undone.`)) {
-                      onDelete(page.id);
-                    }
-                  }}
-                  style={pageActionBtn('#8b2020')}
-                  title="Delete this page"
-                >
-                  Delete Page
-                </button>
+                  onClick={() => { if (window.confirm(`Delete page ${idx+1}?`)) onDelete(page.id); }}
+                  style={pageBtn('#6b1a1a')}
+                >Delete This Page</button>
               )}
             </div>
           )}
         </div>
       ))}
 
-      {/* Add page button */}
-      <button
-        onClick={onAdd}
-        style={{
+      {/* Add page */}
+      <div style={{ position: 'relative', marginTop: 6 }}>
+        <button onClick={() => setShowAddMenu(s => !s)} style={{
           background: 'linear-gradient(135deg, #4a90d9, #6a4fc8)',
           color: 'white', border: 'none', borderRadius: 10,
-          padding: '12px 6px', fontSize: 14, cursor: 'pointer',
+          padding: '11px 6px', fontSize: 13, cursor: 'pointer',
           width: '100%', fontWeight: 800,
-          boxShadow: '0 3px 12px rgba(74,144,217,0.35)',
-          marginTop: 6, letterSpacing: 0.3,
-        }}
-      >
-        + Add New Page
-      </button>
+          boxShadow: '0 3px 12px rgba(74,144,217,0.3)',
+        }}>
+          + Add New Page
+        </button>
 
-      <div style={{ color:'#445', fontSize:10, textAlign:'center', lineHeight:1.4, marginTop:2 }}>
-        Drag pages up or down to reorder them
+        {showAddMenu && (
+          <div style={{
+            position: 'absolute', bottom: '110%', left: 0, right: 0,
+            background: '#1a2035', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 12, padding: 10, zIndex: 500,
+            boxShadow: '0 -10px 40px rgba(0,0,0,0.6)',
+            display: 'flex', flexDirection: 'column', gap: 4,
+          }}>
+            <div style={{ color: '#556', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>Choose layout</div>
+            {LAYOUTS.filter(l => !l.isTitlePage).map(l => (
+              <button key={l.id}
+                onClick={() => { onAdd(l.id); setShowAddMenu(false); }}
+                style={{
+                  background: 'rgba(255,255,255,0.05)', color: '#dde',
+                  border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7,
+                  padding: '7px 10px', cursor: 'pointer', textAlign: 'left', fontSize: 12,
+                }}>
+                <strong style={{ color: '#fff' }}>{l.label}</strong>
+                <div style={{ color: '#667', fontSize: 10, marginTop: 1 }}>{l.desc}</div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ color:'#334', fontSize:9, textAlign:'center', lineHeight:1.4, marginTop:2 }}>
+        Drag pages to reorder
       </div>
     </div>
   );
 }
 
-const pageActionBtn = (bg) => ({
-  background: bg, color: 'white', border: 'none', borderRadius: 7,
-  padding: '6px 4px', fontSize: 11, cursor: 'pointer',
-  width: '100%', fontWeight: 700, textAlign: 'center',
+const pageBtn = bg => ({
+  background: bg, color: 'white', border: 'none', borderRadius: 6,
+  padding: '5px 4px', fontSize: 10, cursor: 'pointer', width: '100%', fontWeight: 700,
 });
