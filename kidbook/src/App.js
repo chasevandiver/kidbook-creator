@@ -12,10 +12,20 @@ import PageStrip from './components/PageStrip';
 import PreviewMode from './components/PreviewMode';
 import { exportToPDF } from './utils/exportPDF';
 
-// Detect share route: /share/XXXX
 function getShareId() {
   const m = window.location.pathname.match(/^\/share\/([a-z0-9]+)$/i);
   return m ? m[1] : null;
+}
+
+function buildBookFromWizard({ title, authorName, trimSize, fontFamily, pageCount }) {
+  const pages = [];
+  const tp = makePage('title-page', trimSize, fontFamily);
+  tp.text = title + (authorName ? '\n\nBy ' + authorName : '');
+  pages.push(tp);
+  for (let i = 1; i < pageCount; i++) {
+    pages.push(makePage('text-only', trimSize, fontFamily));
+  }
+  return { setupDone: true, title, authorName, trimSize, fontFamily, pages, currentPageIdx: 0 };
 }
 
 export default function App() {
@@ -28,31 +38,51 @@ export default function App() {
   const {
     book, TRIM_SIZES, MARGIN,
     undo, canUndo,
-    completeSetup,
     setCurrentPage, updatePage, addPage, deletePage, duplicatePage, movePage, changePageLayout,
     addImage, updateImage, deleteImage,
     addOverlay, updateOverlay, deleteOverlay,
     currentPage, loadBookData, setTitle,
   } = store;
 
-  const [screen, setScreen] = useState('shelf'); // 'shelf' | 'wizard' | 'editor'
+  const [screen, setScreen] = useState('shelf');
   const [preview, setPreview] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [showShare, setShowShare] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
-  const prevBookRef = useRef(null);
 
-  // ── Auto-save to cloud whenever book changes ────────────────────────────────
+  // Pending book data waiting to be loaded into the store
+  // We use a ref + effect to avoid calling setState inside click handlers
+  const pendingBookRef = useRef(null);
+  const [pendingBook, setPendingBook] = useState(null);
+
+  // When pendingBook is set, load it into the store and switch screens
+  useEffect(() => {
+    if (!pendingBook) return;
+    loadBookData(pendingBook);
+    setPendingBook(null);
+    setScreen('editor');
+    // Save to cloud in background
+    cloud.createBook(pendingBook).catch(e => console.error('Cloud save failed:', e));
+  }, [pendingBook]); // eslint-disable-line
+
+  // Auto-save to cloud when book changes in editor
+  const prevBookStr = useRef('');
   useEffect(() => {
     if (!cloud.activeBookId || !book.setupDone || screen !== 'editor') return;
-    if (JSON.stringify(book) === JSON.stringify(prevBookRef.current)) return;
-    prevBookRef.current = book;
+    const str = JSON.stringify(book);
+    if (str === prevBookStr.current) return;
+    prevBookStr.current = str;
     cloud.saveBook(cloud.activeBookId, book);
   }, [book, cloud, screen]);
 
-  // ── Open a book from the shelf ──────────────────────────────────────────────
+  // Wizard complete — just set pendingBook, the effect above does the rest
+  const handleSetupComplete = useCallback((wizardData) => {
+    const bookData = buildBookFromWizard(wizardData);
+    setPendingBook(bookData);
+  }, []);
+
   const handleOpenBook = useCallback(async (bookId) => {
     try {
       const content = await cloud.loadBook(bookId);
@@ -63,37 +93,11 @@ export default function App() {
     }
   }, [cloud, loadBookData]);
 
-  // ── Complete setup wizard → create book in cloud ────────────────────────────
-  const handleSetupComplete = useCallback((wizardData) => {
-    const { title, authorName, trimSize, fontFamily, pageCount } = wizardData;
-    // Build book data synchronously
-    const pages = [];
-    const tp = makePage('title-page', trimSize, fontFamily);
-    tp.text = title + (authorName ? '\n\nBy ' + authorName : '');
-    pages.push(tp);
-    for (let i = 1; i < pageCount; i++) {
-      pages.push(makePage('text-only', trimSize, fontFamily));
-    }
-    const bookData = {
-      setupDone: true, title, authorName,
-      trimSize, fontFamily, pages, currentPageIdx: 0,
-    };
-    // Load into local state first so editor has data
-    loadBookData(bookData);
-    setScreen('editor');
-    // Then save to cloud in the background — non-blocking
-    cloud.createBook(bookData).catch(e => {
-      console.error('Cloud save failed:', e);
-    });
-  }, [cloud, loadBookData]);
-
-  // ── Share URL ───────────────────────────────────────────────────────────────
   const handleShare = useCallback(async () => {
     const url = await cloud.getShareUrl(cloud.activeBookId);
     if (url) { setShareUrl(url); setShowShare(true); }
   }, [cloud]);
 
-  // ── PDF export ──────────────────────────────────────────────────────────────
   const handleExport = async () => {
     setExporting(true);
     try { await exportToPDF(book, TRIM_SIZES); }
@@ -101,28 +105,32 @@ export default function App() {
     setExporting(false);
   };
 
-  // ── Title rename ────────────────────────────────────────────────────────────
   const commitTitle = () => {
     if (titleDraft.trim()) setTitle(titleDraft.trim());
     setEditingTitle(false);
   };
 
-  // ── Public share page — no auth needed ─────────────────────────────────────
+  // Public share view
   if (shareId) {
     return <ShareView shareId={shareId} loadBookByShareId={cloud.loadBookByShareId} TRIM_SIZES={TRIM_SIZES} />;
   }
 
-  // ── Auth loading ────────────────────────────────────────────────────────────
+  // Auth loading
   if (authLoading) {
-    return <div style={fullCenter}>Loading...</div>;
+    return <div style={fullCenter}>📚 Loading...</div>;
   }
 
-  // ── Not logged in ───────────────────────────────────────────────────────────
+  // Not logged in
   if (!user) {
     return <LoginScreen onSignInGoogle={signInWithGoogle} onSignInEmail={signInWithEmail} onSignUpEmail={signUpWithEmail} />;
   }
 
-  // ── Book shelf ──────────────────────────────────────────────────────────────
+  // Pending — wizard just finished, waiting for effect to fire
+  if (pendingBook) {
+    return <div style={fullCenter}>✨ Creating your book...</div>;
+  }
+
+  // Book shelf
   if (screen === 'shelf') {
     return (
       <BookShelf
@@ -137,16 +145,16 @@ export default function App() {
     );
   }
 
-  // ── Setup wizard ────────────────────────────────────────────────────────────
+  // Setup wizard
   if (screen === 'wizard') {
     return <SetupWizard onComplete={handleSetupComplete} />;
   }
 
-  // ── Editor ──────────────────────────────────────────────────────────────────
+  // Editor
   const saveIndicator = {
     saved:  { color: '#3a8', text: '✅ Saved to cloud' },
     saving: { color: '#a80', text: '💾 Saving...' },
-    error:  { color: '#e44', text: '⚠️ Save failed' },
+    error:  { color: '#e44', text: '⚠️ Save failed — check connection' },
   }[cloud.saveStatus] || { color: '#3a8', text: '✅ Saved' };
 
   return (
@@ -155,13 +163,13 @@ export default function App() {
 
       {/* Share modal */}
       {showShare && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
           <div style={{ background:'#1a2035', border:'1px solid rgba(255,255,255,0.12)', borderRadius:18, padding:'32px 36px', maxWidth:460, width:'90%' }}>
             <h3 style={{ color:'#fff', margin:'0 0 10px', fontSize:20 }}>📤 Share Your Book</h3>
-            <p style={{ color:'#889', fontSize:14, marginBottom:16 }}>Anyone with this link can view your book (read-only):</p>
+            <p style={{ color:'#889', fontSize:14, marginBottom:16 }}>Anyone with this link can read your book:</p>
             <div style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'10px 14px', color:'#7ae', fontSize:13, wordBreak:'break-all', marginBottom:16 }}>{shareUrl}</div>
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={() => { navigator.clipboard.writeText(shareUrl); }} style={{ flex:1, background:'#4a90d9', color:'#fff', border:'none', borderRadius:10, padding:'11px', fontSize:14, fontWeight:700, cursor:'pointer' }}>📋 Copy Link</button>
+              <button onClick={() => navigator.clipboard.writeText(shareUrl)} style={{ flex:1, background:'#4a90d9', color:'#fff', border:'none', borderRadius:10, padding:'11px', fontSize:14, fontWeight:700, cursor:'pointer' }}>📋 Copy Link</button>
               <button onClick={() => setShowShare(false)} style={{ flex:1, background:'rgba(255,255,255,0.08)', color:'#fff', border:'none', borderRadius:10, padding:'11px', fontSize:14, cursor:'pointer' }}>Close</button>
             </div>
           </div>
@@ -176,11 +184,11 @@ export default function App() {
             <input autoFocus value={titleDraft}
               onChange={e => setTitleDraft(e.target.value)}
               onBlur={commitTitle}
-              onKeyDown={e => e.key==='Enter' && commitTitle()}
+              onKeyDown={e => e.key === 'Enter' && commitTitle()}
               style={{ fontSize:18, fontWeight:800, background:'rgba(255,255,255,0.1)', color:'#fff', border:'2px solid #4a90d9', borderRadius:8, padding:'4px 12px', outline:'none', minWidth:200, fontFamily:'inherit' }}
             />
           ) : (
-            <div onClick={() => { setTitleDraft(book.title||''); setEditingTitle(true); }} title="Click to rename" style={{ color:'#fff', fontSize:18, fontWeight:800, cursor:'text', padding:'4px 8px', borderRadius:8 }}>
+            <div onClick={() => { setTitleDraft(book.title || ''); setEditingTitle(true); }} title="Click to rename" style={{ color:'#fff', fontSize:18, fontWeight:800, cursor:'text', padding:'4px 8px', borderRadius:8 }}>
               {book.title || 'Untitled Book'}
               <span style={{ fontSize:11, opacity:0.4, marginLeft:6 }}>✏️</span>
             </div>
@@ -189,10 +197,10 @@ export default function App() {
         </div>
 
         <div style={{ display:'flex', gap:7, flexWrap:'wrap', alignItems:'center' }}>
-          <button onClick={undo} disabled={!canUndo} style={topBtn(canUndo?'#3a4a6a':'#252830')}>↩️ Undo</button>
+          <button onClick={undo} disabled={!canUndo} style={topBtn(canUndo ? '#3a4a6a' : '#252830')}>↩️ Undo</button>
           <button onClick={() => setPreview(true)} style={topBtn('#7a5200')}>👁️ Preview</button>
           <button onClick={handleShare} style={topBtn('#1a5a3a')}>🔗 Share Link</button>
-          <button onClick={handleExport} disabled={exporting} style={topBtn(exporting?'#333':'#8b1a1a', true)}>
+          <button onClick={handleExport} disabled={exporting} style={topBtn(exporting ? '#333' : '#8b1a1a', true)}>
             {exporting ? '⏳ Creating PDF...' : '📥 Download PDF for Amazon'}
           </button>
         </div>
@@ -215,7 +223,7 @@ export default function App() {
           <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:14, padding:16, border:'1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12, flexWrap:'wrap', gap:6 }}>
               <div style={{ color:'#7a9', fontSize:13, fontWeight:700 }}>
-                ✏️ Page {book.currentPageIdx+1} of {book.pages.length}
+                ✏️ Page {book.currentPageIdx + 1} of {book.pages.length}
                 <span style={{ color:'#445', marginLeft:10, fontSize:12 }}>{TRIM_SIZES[book.trimSize]?.label}</span>
               </div>
               <div style={{ color:'#344', fontSize:12 }}>💡 Double-click text to edit · Drag pictures · Pull corners to resize</div>
@@ -237,7 +245,9 @@ export default function App() {
                 bookFontFamily={book.fontFamily}
               />
             ) : (
-              <div style={{ color:'#445', textAlign:'center', padding:40, fontSize:16 }}>Select a page from the left, or click "+ Add New Page"</div>
+              <div style={{ color:'#445', textAlign:'center', padding:40, fontSize:16 }}>
+                Select a page from the left, or click "+ Add New Page"
+              </div>
             )}
           </div>
         </div>
@@ -246,5 +256,5 @@ export default function App() {
   );
 }
 
-const topBtn = (bg, large=false) => ({ background:bg, color:'white', border:'none', borderRadius:10, padding: large?'11px 18px':'9px 14px', fontSize: large?14:13, fontWeight:700, cursor:'pointer', boxShadow:'0 2px 10px rgba(0,0,0,0.25)', whiteSpace:'nowrap' });
-const fullCenter = { minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:'#aab', fontSize:20, background:'#0c1020', fontFamily:'sans-serif' };
+const topBtn = (bg, large = false) => ({ background:bg, color:'white', border:'none', borderRadius:10, padding: large ? '11px 18px' : '9px 14px', fontSize: large ? 14 : 13, fontWeight:700, cursor:'pointer', boxShadow:'0 2px 10px rgba(0,0,0,0.25)', whiteSpace:'nowrap' });
+const fullCenter = { minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:'#aab', fontSize:22, background:'#0c1020', fontFamily:'sans-serif' };
