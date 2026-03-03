@@ -1,6 +1,6 @@
 // components/SetupWizard.js
 import React, { useState } from 'react';
-import { TRIM_SIZES, FONTS } from '../store/useBookStore';
+import { TRIM_SIZES, FONTS } from '../store/bookUtils';
 
 const STEPS = ['welcome', 'title', 'size', 'font', 'pages'];
 

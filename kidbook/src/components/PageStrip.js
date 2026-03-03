@@ -1,6 +1,6 @@
 // components/PageStrip.js
 import React, { useState } from 'react';
-import { LAYOUTS } from '../store/useBookStore';
+import { LAYOUTS } from '../store/bookUtils';
 
 const ADD_LAYOUTS = LAYOUTS.filter(l => !l.isTitlePage);
 

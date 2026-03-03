@@ -1,6 +1,6 @@
 // components/PageCanvas.js
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { LAYOUTS, FONTS, OVERLAY_STYLES } from '../store/useBookStore';
+import { LAYOUTS, FONTS, OVERLAY_STYLES } from '../store/bookUtils';
 
 const HANDLE_SIZE = 22;
 

@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useCloud } from './hooks/useCloud';
-import { useBookStore, makePage } from './store/useBookStore';
+import { useBookStore } from './store/useBookStore';
+import { makePage, buildBookFromWizard } from './store/bookUtils';
 import LoginScreen from './components/LoginScreen';
 import BookShelf from './components/BookShelf';
 import ShareView from './components/ShareView';
@@ -15,17 +16,6 @@ import { exportToPDF } from './utils/exportPDF';
 function getShareId() {
   const m = window.location.pathname.match(/^\/share\/([a-z0-9]+)$/i);
   return m ? m[1] : null;
-}
-
-function buildBookFromWizard({ title, authorName, trimSize, fontFamily, pageCount }) {
-  const pages = [];
-  const tp = makePage('title-page', trimSize, fontFamily);
-  tp.text = title + (authorName ? '\n\nBy ' + authorName : '');
-  pages.push(tp);
-  for (let i = 1; i < pageCount; i++) {
-    pages.push(makePage('text-only', trimSize, fontFamily));
-  }
-  return { setupDone: true, title, authorName, trimSize, fontFamily, pages, currentPageIdx: 0 };
 }
 
 export default function App() {
