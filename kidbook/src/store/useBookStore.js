@@ -243,6 +243,22 @@ export function useBookStore() {
     setBookSave(b => ({ ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, overlays: (p.overlays||[]).filter(o => o.id !== overlayId) } : p) }));
   }, [setBookSave]);
 
+  // Load a full book object from cloud — replaces current state
+  const loadBookData = useCallback((bookData) => {
+    const migrated = { ...bookData, pages: (bookData.pages||[]).map(p => ({ overlays: [], ...p })) };
+    setBook(migrated);
+    historyRef.current = [migrated];
+    historyIdxRef.current = 0;
+  }, []);
+
+  // Get current book snapshot for saving to cloud
+  const getBook = useCallback(() => book, [book]);
+
+  // Rename the book
+  const setTitle = useCallback((title) => {
+    setBookSave(b => ({ ...b, title }));
+  }, [setBookSave]);
+
   return {
     book, TRIM_SIZES, FONTS, LAYOUTS, OVERLAY_STYLES, BLEED, MARGIN,
     undo, canUndo: historyIdxRef.current > 0,

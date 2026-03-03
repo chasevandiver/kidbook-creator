@@ -32,7 +32,7 @@ export default function App() {
     setCurrentPage, updatePage, addPage, deletePage, duplicatePage, movePage, changePageLayout,
     addImage, updateImage, deleteImage,
     addOverlay, updateOverlay, deleteOverlay,
-    currentPage, loadBookData,
+    currentPage, loadBookData, getBook, setTitle,
   } = store;
 
   const [screen, setScreen] = useState('shelf'); // 'shelf' | 'wizard' | 'editor'
@@ -65,18 +65,18 @@ export default function App() {
 
   // ── Complete setup wizard → create book in cloud ────────────────────────────
   const handleSetupComplete = useCallback(async (wizardData) => {
+    // completeSetup updates state, then we read it back via getBook after a tick
     completeSetup(wizardData);
-    // Book state updates async; wait a tick then create in cloud
     setTimeout(async () => {
       try {
-        const bookSnap = store.getBook();
+        const bookSnap = getBook();
         const result = await cloud.createBook(bookSnap);
         if (result) setScreen('editor');
       } catch (e) {
         alert('Could not save book: ' + e.message);
       }
-    }, 100);
-  }, [completeSetup, cloud, store]);
+    }, 200);
+  }, [completeSetup, cloud, getBook]);
 
   // ── Share URL ───────────────────────────────────────────────────────────────
   const handleShare = useCallback(async () => {
@@ -94,7 +94,7 @@ export default function App() {
 
   // ── Title rename ────────────────────────────────────────────────────────────
   const commitTitle = () => {
-    if (titleDraft.trim()) updatePage && store.setTitle(titleDraft.trim());
+    if (titleDraft.trim()) setTitle(titleDraft.trim());
     setEditingTitle(false);
   };
 
