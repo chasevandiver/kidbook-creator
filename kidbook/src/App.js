@@ -12,10 +12,15 @@ import PageCanvas from './components/PageCanvas';
 import PageStrip from './components/PageStrip';
 import PreviewMode from './components/PreviewMode';
 import { exportToPDF } from './utils/exportPDF';
+import ImportBook from './components/ImportBook';
 
 function getShareId() {
   const m = window.location.pathname.match(/^\/share\/([a-z0-9]+)$/i);
   return m ? m[1] : null;
+}
+
+function isImportRoute() {
+  return window.location.pathname === '/import';
 }
 
 export default function App() {
@@ -118,6 +123,11 @@ export default function App() {
   // Pending — wizard just finished, waiting for effect to fire
   if (pendingBook) {
     return <div style={fullCenter}>✨ Creating your book...</div>;
+  }
+
+  // Import route
+  if (isImportRoute() && user) {
+    return <ImportBook user={user} createBook={cloud.createBook} onDone={() => { window.location.href = '/'; }} />;
   }
 
   // Book shelf
