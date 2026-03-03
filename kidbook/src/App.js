@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useCloud } from './hooks/useCloud';
-import { useBookStore } from './store/useBookStore';
+import { useBookStore, makePage } from './store/useBookStore';
 import LoginScreen from './components/LoginScreen';
 import BookShelf from './components/BookShelf';
 import ShareView from './components/ShareView';
@@ -66,21 +66,23 @@ export default function App() {
   // ── Complete setup wizard → create book in cloud ────────────────────────────
   const handleSetupComplete = useCallback(async (wizardData) => {
     try {
-      // Build the book data directly here — don't rely on reading state back
       const { title, authorName, trimSize, fontFamily, pageCount } = wizardData;
-      const { makePage } = await import('./store/useBookStore');
+      // Build pages using the already-imported makePage
       const pages = [];
       const tp = makePage('title-page', trimSize, fontFamily);
       tp.text = title + (authorName ? '\n\nBy ' + authorName : '');
       pages.push(tp);
-      for (let i = 1; i < pageCount; i++) pages.push(makePage('text-only', trimSize, fontFamily));
-      const bookData = { setupDone: true, title, authorName, trimSize, fontFamily, pages, currentPageIdx: 0 };
-
-      // Save to cloud first
+      for (let i = 1; i < pageCount; i++) {
+        pages.push(makePage('text-only', trimSize, fontFamily));
+      }
+      const bookData = {
+        setupDone: true, title, authorName,
+        trimSize, fontFamily, pages, currentPageIdx: 0,
+      };
+      // Save to Supabase
       const result = await cloud.createBook(bookData);
-      if (!result) throw new Error('Could not create book in cloud');
-
-      // Now load into local store and go to editor
+      if (!result) throw new Error('Could not save to cloud');
+      // Load into editor
       loadBookData(bookData);
       setScreen('editor');
     } catch (e) {
