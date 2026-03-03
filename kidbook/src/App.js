@@ -32,7 +32,7 @@ export default function App() {
     setCurrentPage, updatePage, addPage, deletePage, duplicatePage, movePage, changePageLayout,
     addImage, updateImage, deleteImage,
     addOverlay, updateOverlay, deleteOverlay,
-    currentPage, loadBookData, getBook, setTitle,
+    currentPage, loadBookData, setTitle,
   } = store;
 
   const [screen, setScreen] = useState('shelf'); // 'shelf' | 'wizard' | 'editor'
@@ -65,18 +65,28 @@ export default function App() {
 
   // ── Complete setup wizard → create book in cloud ────────────────────────────
   const handleSetupComplete = useCallback(async (wizardData) => {
-    // completeSetup updates state, then we read it back via getBook after a tick
-    completeSetup(wizardData);
-    setTimeout(async () => {
-      try {
-        const bookSnap = getBook();
-        const result = await cloud.createBook(bookSnap);
-        if (result) setScreen('editor');
-      } catch (e) {
-        alert('Could not save book: ' + e.message);
-      }
-    }, 200);
-  }, [completeSetup, cloud, getBook]);
+    try {
+      // Build the book data directly here — don't rely on reading state back
+      const { title, authorName, trimSize, fontFamily, pageCount } = wizardData;
+      const { makePage } = await import('./store/useBookStore');
+      const pages = [];
+      const tp = makePage('title-page', trimSize, fontFamily);
+      tp.text = title + (authorName ? '\n\nBy ' + authorName : '');
+      pages.push(tp);
+      for (let i = 1; i < pageCount; i++) pages.push(makePage('text-only', trimSize, fontFamily));
+      const bookData = { setupDone: true, title, authorName, trimSize, fontFamily, pages, currentPageIdx: 0 };
+
+      // Save to cloud first
+      const result = await cloud.createBook(bookData);
+      if (!result) throw new Error('Could not create book in cloud');
+
+      // Now load into local store and go to editor
+      loadBookData(bookData);
+      setScreen('editor');
+    } catch (e) {
+      alert('Could not create book: ' + e.message);
+    }
+  }, [cloud, loadBookData]);
 
   // ── Share URL ───────────────────────────────────────────────────────────────
   const handleShare = useCallback(async () => {
