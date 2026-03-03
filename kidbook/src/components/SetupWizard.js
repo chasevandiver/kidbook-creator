@@ -222,7 +222,7 @@ export default function SetupWizard({ onComplete }) {
           ) : <div />}
 
           <button
-            onClick={isLast ? () => onComplete(data) : next}
+            onClick={isLast ? () => setTimeout(() => onComplete(data), 0) : next}
             disabled={!canProceed()}
             style={{
               background: canProceed()
