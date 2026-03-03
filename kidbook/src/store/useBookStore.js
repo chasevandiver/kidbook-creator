@@ -48,6 +48,23 @@ export function makePage(layoutId = 'text-only', trimSize = '8x8', fontFamily = 
   const tz = layout.textZone;
   const iz = layout.imageZone;
   const images = iz ? [{ id: uuid(), src: null, x: iz.x, y: iz.y, w: iz.w, h: iz.h, locked: false, zIndex: 1, placeholder: true }] : [];
+
+  // Load a full book object from cloud (replaces current state)
+  const loadBookData = useCallback((bookData) => {
+    const migrated = { ...bookData, pages: (bookData.pages||[]).map(p => ({ overlays:[], ...p })) };
+    setBook(migrated);
+    historyRef.current = [migrated];
+    historyIdxRef.current = 0;
+  }, []);
+
+  // Get current book snapshot (for creating in cloud)
+  const getBook = useCallback(() => book, [book]);
+
+  // Set title directly
+  const setTitle = useCallback((title) => {
+    setBookSave(b => ({ ...b, title }));
+  }, [setBookSave]);
+
   return {
     id: uuid(),
     layoutId,
@@ -234,5 +251,6 @@ export function useBookStore() {
     addImage, updateImage, deleteImage,
     addOverlay, updateOverlay, deleteOverlay,
     currentPage: book.pages[book.currentPageIdx] || null,
+    loadBookData, getBook, setTitle,
   };
 }
