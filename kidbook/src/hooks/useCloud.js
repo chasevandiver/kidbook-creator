@@ -1,6 +1,7 @@
 // hooks/useCloud.js
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabase';
+import BARRY_BOOK from '../data/barryBook';
 
 const DEBOUNCE_MS = 2500;
 
@@ -11,6 +12,24 @@ export function useCloud(user) {
   const [loadingBooks, setLoadingBooks] = useState(false);
   const debounceRef = useRef(null);
 
+  const seedBarry = useCallback(async () => {
+    // Only seed once — check if already seeded
+    if (localStorage.getItem('barry_seeded')) return;
+    try {
+      const shareId = Math.random().toString(36).slice(2, 10);
+      await supabase.from('books').insert({
+        user_id: user.id,
+        title: BARRY_BOOK.title,
+        trim_size: BARRY_BOOK.trimSize,
+        content: BARRY_BOOK,
+        share_id: shareId,
+      });
+      localStorage.setItem('barry_seeded', '1');
+    } catch (e) {
+      console.error('Barry seed failed:', e);
+    }
+  }, [user]);
+
   const loadBooks = useCallback(async () => {
     if (!user) return;
     setLoadingBooks(true);
@@ -20,12 +39,25 @@ export function useCloud(user) {
         .select('id, title, trim_size, updated_at, share_id')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
-      if (!error) setBooks(data || []);
+      if (!error) {
+        // If no books yet, seed Barry first then reload
+        if (!error && data && data.length === 0 && !localStorage.getItem('barry_seeded')) {
+          await seedBarry();
+          const { data: data2 } = await supabase
+            .from('books')
+            .select('id, title, trim_size, updated_at, share_id')
+            .eq('user_id', user.id)
+            .order('updated_at', { ascending: false });
+          setBooks(data2 || []);
+        } else {
+          setBooks(data || []);
+        }
+      }
     } catch (e) {
       console.error('loadBooks error:', e);
     }
     setLoadingBooks(false);
-  }, [user]);
+  }, [user, seedBarry]);
 
   useEffect(() => { loadBooks(); }, [loadBooks]);
 
