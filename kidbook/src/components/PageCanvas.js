@@ -56,20 +56,73 @@ const TEXT_POSITIONS = [
   { label:'⬛ Middle',     x:8,  y:30, w:84, h:40 },
 ];
 
-// ── Image item — just renders the image, controls are in ImageControls below canvas
-function ImageItem({ img, pageId, onUpdate, onDelete, selected, onSelect }) {
+// ── Image item — drag to move, corner handles to resize, presets below canvas
+function ImageItem({ img, pageId, onUpdate, onDelete, selected, onSelect, canvasW, canvasH }) {
+  const startDrag = useCallback((e) => {
+    e.stopPropagation();
+    const cx0 = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy0 = e.touches ? e.touches[0].clientY : e.clientY;
+    const x0 = img.x, y0 = img.y;
+    const move = me => {
+      const cx = me.touches ? me.touches[0].clientX : me.clientX;
+      const cy = me.touches ? me.touches[0].clientY : me.clientY;
+      onUpdate(pageId, img.id, {
+        x: Math.max(0, Math.min(100 - img.w, x0 + ((cx - cx0) / canvasW) * 100)),
+        y: Math.max(0, Math.min(100 - img.h, y0 + ((cy - cy0) / canvasH) * 100)),
+      });
+    };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up); };
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', up);
+  }, [img, pageId, onUpdate, canvasW, canvasH]);
+
+  const startResize = useCallback((corner, e) => {
+    e.stopPropagation(); e.preventDefault();
+    const cx0 = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy0 = e.touches ? e.touches[0].clientY : e.clientY;
+    const s0 = { x: img.x, y: img.y, w: img.w, h: img.h };
+    const move = me => {
+      const cx = me.touches ? me.touches[0].clientX : me.clientX;
+      const cy = me.touches ? me.touches[0].clientY : me.clientY;
+      const dx = ((cx - cx0) / canvasW) * 100, dy = ((cy - cy0) / canvasH) * 100;
+      let { x: nx, y: ny, w: nw, h: nh } = s0;
+      if (corner === 'se') { nw = Math.max(10, nw + dx); nh = Math.max(10, nh + dy); }
+      else if (corner === 'sw') { nw = Math.max(10, nw - dx); nx = Math.min(s0.x + s0.w - 10, nx + dx); nh = Math.max(10, nh + dy); }
+      else if (corner === 'ne') { nw = Math.max(10, nw + dx); nh = Math.max(10, nh - dy); ny = Math.min(s0.y + s0.h - 10, ny + dy); }
+      else if (corner === 'nw') { nw = Math.max(10, nw - dx); nx = Math.min(s0.x + s0.w - 10, nx + dx); nh = Math.max(10, nh - dy); ny = Math.min(s0.y + s0.h - 10, ny + dy); }
+      onUpdate(pageId, img.id, { x: nx, y: ny, w: nw, h: nh });
+    };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up); };
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', up);
+  }, [img, pageId, onUpdate, canvasW, canvasH]);
+
+  const HS = 20;
+  const corners = [
+    { c: 'nw', s: { top: -HS/2, left: -HS/2,    cursor: 'nw-resize' } },
+    { c: 'ne', s: { top: -HS/2, right: -HS/2,   cursor: 'ne-resize' } },
+    { c: 'sw', s: { bottom: -HS/2, left: -HS/2,  cursor: 'sw-resize' } },
+    { c: 'se', s: { bottom: -HS/2, right: -HS/2, cursor: 'se-resize' } },
+  ];
+
   return (
     <div
       style={{ position:'absolute', left:`${img.x}%`, top:`${img.y}%`, width:`${img.w}%`, height:`${img.h}%`,
-        boxSizing:'border-box', userSelect:'none', zIndex: img.zIndex||2,
-        cursor:'pointer',
-        outline: selected ? '5px solid #4a90d9' : 'none',
-        boxShadow: selected ? '0 0 0 2px #fff' : 'none',
+        boxSizing:'border-box', userSelect:'none', zIndex: img.zIndex||2, overflow:'visible',
+        cursor: selected ? 'move' : 'pointer',
+        outline: selected ? '3px solid #4a90d9' : 'none',
       }}
-      onClick={e => { e.stopPropagation(); onSelect(); }}
+      onMouseDown={e => { onSelect(); if (selected) startDrag(e); }}
+      onTouchStart={e => { onSelect(); if (selected) startDrag(e); }}
+      onClick={e => e.stopPropagation()}
     >
-      <img src={img.src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', pointerEvents:'none' }} draggable={false} />
-      {selected && <div style={{ position:'absolute', inset:0, border:'5px solid #4a90d9', pointerEvents:'none', boxSizing:'border-box' }} />}
+      <img src={img.src} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', display:'block', pointerEvents:'none' }} draggable={false} />
+      {selected && corners.map(({ c, s }) => (
+        <div key={c}
+          onMouseDown={e => startResize(c, e)}
+          onTouchStart={e => startResize(c, e)}
+          style={{ position:'absolute', width: HS, height: HS, background:'#4a90d9', borderRadius:'50%', border:'3px solid white', boxShadow:'0 2px 8px rgba(0,0,0,0.6)', cursor: s.cursor, zIndex:10, ...s }} />
+      ))}
     </div>
   );
 }
@@ -80,7 +133,7 @@ function ImageControls({ img, pageId, onUpdate, onDelete, onDeselect }) {
   return (
     <div style={{ background:'#1a2035', border:'1px solid rgba(74,144,217,0.4)', borderRadius:14, padding:'14px 16px', marginTop:10, display:'flex', flexDirection:'column', gap:10 }}>
       <div style={{ fontSize:11, color:'#778', fontWeight:800, textTransform:'uppercase', letterSpacing:1 }}>
-        📍 Move Selected Picture To...
+        📍 Snap Picture To... (or drag it on the page · pull blue corners to resize)
       </div>
       <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
         {IMG_POSITIONS.map(pos => (
