@@ -323,14 +323,13 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
       {/* LAYOUT PICKER */}
       <LayoutPicker currentLayoutId={page.layoutId} onSelect={id=>onChangeLayout(page.id,id)} />
 
-      {/* CANVAS — height-driven so portrait pages stay portrait */}
+      {/* CANVAS — fixed max width, centered, aspect ratio preserves shape */}
       <div style={{
-        height: 'calc(100vh - 320px)',
-        maxHeight: 700,
+        width: `min(520px, 100%)`,
         aspectRatio: `${trimW} / ${trimH}`,
         position: 'relative',
         marginTop: 10,
-        alignSelf: 'flex-start',
+        margin: '10px auto 0',
       }}>
         <div ref={containerRef} onClick={clearSelection} data-bg="1"
           style={{ position:'absolute', inset:0, backgroundColor:page.bgColor||'#ffffff', boxShadow:'0 8px 40px rgba(0,0,0,0.45)', overflow:'visible', borderRadius:3, userSelect:'none' }}>

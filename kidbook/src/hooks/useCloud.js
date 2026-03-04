@@ -4,7 +4,11 @@ import { supabase } from '../supabase';
 import { TEST_BOOK, ACTUAL_BOOK } from '../data/barryBook';
 
 const DEBOUNCE_MS = 2500;
-const SEED_KEY = 'barry_seeded_v4'; // bump this to force a fresh re-seed
+const SEED_VERSION = 4; // increment this to force a re-seed
+const SEED_KEY = `barry_seeded_v${SEED_VERSION}`;
+
+// Clear all old seed keys on module load
+['barry_seeded', 'barry_seeded_v1', 'barry_seeded_v2', 'barry_seeded_v3'].forEach(k => localStorage.removeItem(k));
 
 export function useCloud(user) {
   const [books, setBooks] = useState([]);
@@ -16,7 +20,7 @@ export function useCloud(user) {
   const seedBooks = useCallback(async () => {
     if (localStorage.getItem(SEED_KEY)) return;
     try {
-      // Delete ALL existing books for this user (cleans up duplicates)
+      // Delete ALL existing books for this user
       await supabase.from('books').delete().eq('user_id', user.id);
 
       // Insert TEST book
