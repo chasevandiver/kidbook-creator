@@ -117,30 +117,63 @@ const CORNERS = [
   { c: 'se', s: { bottom: -HANDLE_SIZE/2, right: -HANDLE_SIZE/2, cursor: 'se-resize' } },
 ];
 
+// ── Image position presets ───────────────────────────────────────────────────
+const IMG_POSITIONS = [
+  { label: '⬆️ Top',       x: 8,  y: 6,  w: 84, h: 44 },
+  { label: '⬇️ Bottom',    x: 8,  y: 50, w: 84, h: 44 },
+  { label: '⬅️ Left',      x: 4,  y: 6,  w: 44, h: 88 },
+  { label: '➡️ Right',     x: 52, y: 6,  w: 44, h: 88 },
+  { label: '🖼️ Full Page', x: 0,  y: 0,  w: 100, h: 100 },
+  { label: '⬛ Middle',    x: 15, y: 25, w: 70, h: 50 },
+];
+
 // ── Image item ────────────────────────────────────────────────────────────────
 function ImageItem({ img, pageId, onUpdate, onDelete, canvasW, canvasH, selected, onSelect }) {
-  const { startDrag, startResize } = useDragResize({
-    x: img.x, y: img.y, w: img.w, h: img.h,
-    canvasW, canvasH, locked: img.locked,
-    onMove: (nx, ny) => onUpdate(pageId, img.id, { x: nx, y: ny }),
-    onResize: (nx, ny, nw, nh) => onUpdate(pageId, img.id, { x: nx, y: ny, w: nw, h: nh }),
-  });
   return (
-    <div style={{ position:'absolute', left:`${img.x}%`, top:`${img.y}%`, width:`${img.w}%`, height:`${img.h}%`, cursor: img.locked ? 'default' : 'move', outline: selected ? '3px solid #4a90d9' : 'none', boxSizing:'border-box', userSelect:'none', zIndex: img.zIndex || 2 }}
-      onMouseDown={e => { onSelect(); startDrag(e); }} onTouchStart={e => { onSelect(); startDrag(e); }}>
-      <img src={img.src} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', display:'block', pointerEvents:'none' }} draggable={false} />
-      {selected && !img.locked && CORNERS.map(({ c, s }) => (
-        <div key={c} onMouseDown={e => startResize(c, e)} onTouchStart={e => startResize(c, e)}
-          style={{ position:'absolute', width: HANDLE_SIZE, height: HANDLE_SIZE, background:'#4a90d9', borderRadius:'50%', border:'3px solid white', boxShadow:'0 2px 8px rgba(0,0,0,0.5)', ...s }} />
-      ))}
+    <div
+      style={{ position:'absolute', left:`${img.x}%`, top:`${img.y}%`, width:`${img.w}%`, height:`${img.h}%`,
+        outline: selected ? '4px solid #4a90d9' : 'none',
+        boxSizing:'border-box', userSelect:'none', zIndex: img.zIndex || 2,
+        overflow:'visible', cursor:'pointer' }}
+      onClick={e => { e.stopPropagation(); onSelect(); }}
+      onTouchEnd={e => { e.stopPropagation(); onSelect(); }}
+    >
+      <img src={img.src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', pointerEvents:'none' }} draggable={false} />
+
+      {/* Selection indicator */}
       {selected && (
-        <div style={{ position:'absolute', top:-50, left:0, display:'flex', gap:6, zIndex:300 }}>
-          <button onClick={e => { e.stopPropagation(); onUpdate(pageId, img.id, { locked: !img.locked }); }} style={fb(img.locked ? '#b07000' : '#1e7e44')}>
-            {img.locked ? '🔒 Locked' : '🔓 Lock in place'}
-          </button>
-          <button onClick={e => { e.stopPropagation(); if (window.confirm('Remove this picture?')) onDelete(pageId, img.id); }} style={fb('#b52020')}>
-            🗑️ Remove Picture
-          </button>
+        <div style={{ position:'absolute', inset:0, border:'4px solid #4a90d9', borderRadius:2, pointerEvents:'none' }} />
+      )}
+
+      {/* Position controls — shown when selected */}
+      {selected && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 8px)', left:0,
+          background:'#1a2035', border:'1px solid rgba(255,255,255,0.15)',
+          borderRadius:12, padding:'10px 12px',
+          display:'flex', flexDirection:'column', gap:8,
+          zIndex:500, boxShadow:'0 8px 32px rgba(0,0,0,0.7)',
+          minWidth:220,
+        }}>
+          <div style={{ fontSize:11, color:'#778', fontWeight:800, textTransform:'uppercase', letterSpacing:1 }}>
+            Move Picture To...
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {IMG_POSITIONS.map(pos => (
+              <button key={pos.label}
+                onClick={e => { e.stopPropagation(); onUpdate(pageId, img.id, { x: pos.x, y: pos.y, w: pos.w, h: pos.h }); }}
+                style={{ background:'rgba(74,144,217,0.2)', color:'#7ae', border:'1px solid rgba(74,144,217,0.4)',
+                  borderRadius:8, padding:'8px 12px', fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                {pos.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:8, display:'flex', gap:6 }}>
+            <button onClick={e => { e.stopPropagation(); if (window.confirm('Remove this picture?')) onDelete(pageId, img.id); }}
+              style={{ background:'rgba(180,40,40,0.3)', color:'#e88', border:'none', borderRadius:8, padding:'7px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+              🗑️ Remove Picture
+            </button>
+          </div>
         </div>
       )}
     </div>
