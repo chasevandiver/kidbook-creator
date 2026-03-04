@@ -207,7 +207,7 @@ export default function App() {
       </div>
 
       {/* MAIN EDITOR */}
-      <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
+      <div style={{ display:'flex', gap:16, alignItems:'flex-start', minHeight:'calc(100vh - 200px)' }}>
         <PageStrip
           pages={book.pages}
           currentIdx={book.currentPageIdx}
@@ -219,7 +219,7 @@ export default function App() {
           trimSize={book.trimSize}
           TRIM_SIZES={TRIM_SIZES}
         />
-        <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
           <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:14, padding:16, border:'1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12, flexWrap:'wrap', gap:6 }}>
               <div style={{ color:'#7a9', fontSize:13, fontWeight:700 }}>

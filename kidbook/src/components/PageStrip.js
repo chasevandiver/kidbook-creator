@@ -16,7 +16,8 @@ export default function PageStrip({ pages, currentIdx, onSelect, onAdd, onDelete
       background: '#111622',
       borderRadius: 14, padding: '12px 8px',
       display: 'flex', flexDirection: 'column', gap: 6,
-      maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', overflowX: 'visible',
+      height: 'calc(100vh - 160px)', overflowY: 'auto', overflowX: 'visible',
+      position: 'sticky', top: 12,
     }}>
       <div style={{ color: '#445', fontSize: 10, fontWeight: 800, textAlign: 'center', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 2 }}>
         {pages.length} Pages
