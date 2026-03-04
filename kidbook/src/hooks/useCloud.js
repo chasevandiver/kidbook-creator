@@ -1,9 +1,10 @@
 // hooks/useCloud.js
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabase';
-import BARRY_BOOK from '../data/barryBook';
+import { TEST_BOOK, ACTUAL_BOOK } from '../data/barryBook';
 
 const DEBOUNCE_MS = 2500;
+const SEED_KEY = 'barry_seeded_v2'; // bumped version so it re-seeds
 
 export function useCloud(user) {
   const [books, setBooks] = useState([]);
@@ -12,21 +13,36 @@ export function useCloud(user) {
   const [loadingBooks, setLoadingBooks] = useState(false);
   const debounceRef = useRef(null);
 
-  const seedBarry = useCallback(async () => {
-    // Only seed once — check if already seeded
-    if (localStorage.getItem('barry_seeded')) return;
+  const seedBooks = useCallback(async () => {
+    if (localStorage.getItem(SEED_KEY)) return;
     try {
-      const shareId = Math.random().toString(36).slice(2, 10);
+      // Delete any old barry books first to avoid duplicates
+      await supabase.from('books')
+        .delete()
+        .eq('user_id', user.id)
+        .ilike('title', '%Barry is Terrific%');
+
+      // Insert TEST book
       await supabase.from('books').insert({
         user_id: user.id,
-        title: BARRY_BOOK.title,
-        trim_size: BARRY_BOOK.trimSize,
-        content: BARRY_BOOK,
-        share_id: shareId,
+        title: TEST_BOOK.title,
+        trim_size: TEST_BOOK.trimSize,
+        content: TEST_BOOK,
+        share_id: Math.random().toString(36).slice(2, 10),
       });
-      localStorage.setItem('barry_seeded', '1');
+
+      // Insert ACTUAL book
+      await supabase.from('books').insert({
+        user_id: user.id,
+        title: ACTUAL_BOOK.title,
+        trim_size: ACTUAL_BOOK.trimSize,
+        content: ACTUAL_BOOK,
+        share_id: Math.random().toString(36).slice(2, 10),
+      });
+
+      localStorage.setItem(SEED_KEY, '1');
     } catch (e) {
-      console.error('Barry seed failed:', e);
+      console.error('Seed failed:', e);
     }
   }, [user]);
 
@@ -39,10 +55,12 @@ export function useCloud(user) {
         .select('id, title, trim_size, updated_at, share_id')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
+
       if (!error) {
-        // If no books yet, seed Barry first then reload
-        if (!error && data && data.length === 0 && !localStorage.getItem('barry_seeded')) {
-          await seedBarry();
+        const needsSeed = !localStorage.getItem(SEED_KEY);
+        if (needsSeed) {
+          await seedBooks();
+          // Reload after seeding
           const { data: data2 } = await supabase
             .from('books')
             .select('id, title, trim_size, updated_at, share_id')
@@ -57,7 +75,7 @@ export function useCloud(user) {
       console.error('loadBooks error:', e);
     }
     setLoadingBooks(false);
-  }, [user, seedBarry]);
+  }, [user, seedBooks]);
 
   useEffect(() => { loadBooks(); }, [loadBooks]);
 
@@ -76,8 +94,6 @@ export function useCloud(user) {
     return data.content;
   }, []);
 
-  // createBook — pure async, no state updates during execution
-  // caller sets screen/loads data after this resolves
   const createBook = useCallback(async (bookData) => {
     if (!user) throw new Error('Not logged in');
     const shareId = Math.random().toString(36).slice(2, 10);
@@ -86,18 +102,14 @@ export function useCloud(user) {
       .insert({
         user_id: user.id,
         title: bookData.title || 'Untitled Book',
-        trim_size: bookData.trimSize || '8x8',
+        trim_size: bookData.trimSize || '8x10',
         content: bookData,
         share_id: shareId,
       })
       .select('id, share_id')
       .single();
     if (error) throw error;
-    // Defer state updates to avoid React render-phase conflicts
-    setTimeout(() => {
-      setActiveBookId(data.id);
-      loadBooks();
-    }, 0);
+    setTimeout(() => { setActiveBookId(data.id); loadBooks(); }, 0);
     return { id: data.id, shareId: data.share_id };
   }, [user, loadBooks]);
 
@@ -111,7 +123,7 @@ export function useCloud(user) {
           .from('books')
           .update({
             title: bookData.title || 'Untitled Book',
-            trim_size: bookData.trimSize || '8x8',
+            trim_size: bookData.trimSize || '8x10',
             content: bookData,
             updated_at: new Date().toISOString(),
           })
