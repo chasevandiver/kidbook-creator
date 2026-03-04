@@ -4,7 +4,7 @@ import { supabase } from '../supabase';
 import { TEST_BOOK, ACTUAL_BOOK } from '../data/barryBook';
 
 const DEBOUNCE_MS = 2500;
-const SEED_KEY = 'barry_seeded_v3'; // bump this to force a fresh re-seed
+const SEED_KEY = 'barry_seeded_v4'; // bump this to force a fresh re-seed
 
 export function useCloud(user) {
   const [books, setBooks] = useState([]);

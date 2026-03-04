@@ -46,6 +46,16 @@ const IMG_POSITIONS = [
   { label:'⬛ Middle',    x:15, y:25, w:70, h:50  },
 ];
 
+// ── Text zone position presets ───────────────────────────────────────────────
+const TEXT_POSITIONS = [
+  { label:'⬆️ Top',        x:8,  y:6,  w:84, h:36 },
+  { label:'⬇️ Bottom',     x:8,  y:62, w:84, h:32 },
+  { label:'⬅️ Left Half',  x:4,  y:6,  w:44, h:88 },
+  { label:'➡️ Right Half', x:52, y:6,  w:44, h:88 },
+  { label:'📄 Full Page',  x:8,  y:8,  w:84, h:84 },
+  { label:'⬛ Middle',     x:8,  y:30, w:84, h:40 },
+];
+
 // ── Image item — just renders the image, controls are in ImageControls below canvas
 function ImageItem({ img, pageId, onUpdate, onDelete, selected, onSelect }) {
   return (
@@ -86,6 +96,33 @@ function ImageControls({ img, pageId, onUpdate, onDelete, onDeselect }) {
           style={{ background:'rgba(180,40,40,0.3)', color:'#e88', border:'none', borderRadius:8, padding:'9px 16px', fontSize:13, fontWeight:700, cursor:'pointer' }}>
           🗑️ Remove Picture
         </button>
+        <button onClick={onDeselect}
+          style={{ background:'rgba(255,255,255,0.08)', color:'#aab', border:'none', borderRadius:8, padding:'9px 16px', fontSize:13, cursor:'pointer' }}>
+          ✕ Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Text zone controls — rendered below canvas ───────────────────────────────
+function TextControls({ page, onUpdate, onDeselect }) {
+  if (!page.textZone) return null;
+  return (
+    <div style={{ background:'#1a2035', border:'1px solid rgba(245,166,35,0.4)', borderRadius:14, padding:'14px 16px', marginTop:10, display:'flex', flexDirection:'column', gap:10 }}>
+      <div style={{ fontSize:11, color:'#b87', fontWeight:800, textTransform:'uppercase', letterSpacing:1 }}>
+        📝 Move Text Box To...
+      </div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+        {TEXT_POSITIONS.map(pos => (
+          <button key={pos.label}
+            onClick={() => onUpdate(page.id, { textZone: { ...page.textZone, x:pos.x, y:pos.y, w:pos.w, h:pos.h } })}
+            style={{ background:'rgba(245,166,35,0.2)', color:'#fc9', border:'1px solid rgba(245,166,35,0.5)', borderRadius:10, padding:'10px 16px', fontSize:15, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+            {pos.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:10 }}>
         <button onClick={onDeselect}
           style={{ background:'rgba(255,255,255,0.08)', color:'#aab', border:'none', borderRadius:8, padding:'9px 16px', fontSize:13, cursor:'pointer' }}>
           ✕ Done
@@ -200,6 +237,7 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
   const [editingZone, setEditingZone]         = useState(false);
   const [selectedImageId, setSelectedImageId] = useState(null);
   const [selectedOverlayId, setSelectedOverlayId] = useState(null);
+  const [textZoneSelected, setTextZoneSelected] = useState(false);
   const [canvasSize, setCanvasSize]           = useState({ w:600, h:800 });
 
   // Always read trimSize fresh — never fall back to a wrong default
@@ -229,7 +267,7 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
 
   const clearSelection = e => {
     if (e.target === containerRef.current || e.target.dataset.bg) {
-      setSelectedImageId(null); setSelectedOverlayId(null);
+      setSelectedImageId(null); setSelectedOverlayId(null); setTextZoneSelected(false);
     }
   };
 
@@ -285,13 +323,14 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
       {/* LAYOUT PICKER */}
       <LayoutPicker currentLayoutId={page.layoutId} onSelect={id=>onChangeLayout(page.id,id)} />
 
-      {/* CANVAS — constrained to correct portrait/landscape ratio */}
+      {/* CANVAS — height-driven so portrait pages stay portrait */}
       <div style={{
-        width: '100%',
-        maxHeight: 'calc(100vh - 300px)',
+        height: 'calc(100vh - 320px)',
+        maxHeight: 700,
         aspectRatio: `${trimW} / ${trimH}`,
         position: 'relative',
         marginTop: 10,
+        alignSelf: 'flex-start',
       }}>
         <div ref={containerRef} onClick={clearSelection} data-bg="1"
           style={{ position:'absolute', inset:0, backgroundColor:page.bgColor||'#ffffff', boxShadow:'0 8px 40px rgba(0,0,0,0.45)', overflow:'visible', borderRadius:3, userSelect:'none' }}>
@@ -326,8 +365,10 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
 
           {/* Layout text zone */}
           {tz && (
-            <div onDoubleClick={() => { setEditingZone(true); setTimeout(()=>textareaRef.current?.focus(),30); }}
-              style={{ position:'absolute', left:`${tz.x}%`, top:`${tz.y}%`, width:`${tz.w}%`, height:`${tz.h}%`, boxSizing:'border-box', padding:`${displayFontSize*0.15}px ${displayFontSize*0.25}px`, border: editingZone?'2px dashed #4a90d9':'2px dashed rgba(74,144,217,0.3)', borderRadius:5, background: editingZone?'rgba(255,255,255,0.95)':'transparent', overflow:'hidden', cursor:'text', zIndex:50 }}>
+            <div
+              onClick={e => { e.stopPropagation(); setTextZoneSelected(true); setSelectedImageId(null); setSelectedOverlayId(null); }}
+              onDoubleClick={() => { setTextZoneSelected(false); setEditingZone(true); setTimeout(()=>textareaRef.current?.focus(),30); }}
+              style={{ position:'absolute', left:`${tz.x}%`, top:`${tz.y}%`, width:`${tz.w}%`, height:`${tz.h}%`, boxSizing:'border-box', padding:`${displayFontSize*0.15}px ${displayFontSize*0.25}px`, border: textZoneSelected?'3px solid #f5a623': editingZone?'2px dashed #4a90d9':'2px dashed rgba(74,144,217,0.3)', borderRadius:5, background: editingZone?'rgba(255,255,255,0.95)':'transparent', overflow:'hidden', cursor: editingZone?'text':'pointer', zIndex:50 }}>
               {editingZone ? (
                 <textarea ref={textareaRef} autoFocus value={page.text}
                   onChange={e=>onUpdate(page.id,{text:e.target.value})}
@@ -352,10 +393,15 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
         onDeselect={() => setSelectedImageId(null)}
       />
 
+      {/* Text zone controls */}
+      {textZoneSelected && (
+        <TextControls page={page} onUpdate={onUpdate} onDeselect={() => setTextZoneSelected(false)} />
+      )}
+
       {/* Hint */}
       <div style={{ marginTop:8, fontSize:11, color:'#556', display:'flex', gap:16, flexWrap:'wrap' }}>
         <span><span style={{color:'#3a8'}}>- - -</span> Green = safe zone (keep text inside for printing)</span>
-        {!selectedImageId && <span style={{color:'#888'}}>💡 Tap any picture to move it</span>}
+        {!selectedImageId && !textZoneSelected && <span style={{color:'#888'}}>💡 Tap picture to move it · Tap text area to move it</span>}
       </div>
     </div>
   );
