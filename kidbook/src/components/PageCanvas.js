@@ -116,7 +116,7 @@ function ImageItem({ img, pageId, onUpdate, onDelete, selected, onSelect, canvas
       onTouchStart={e => { onSelect(); if (selected) startDrag(e); }}
       onClick={e => e.stopPropagation()}
     >
-      <img src={img.src} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', display:'block', pointerEvents:'none' }} draggable={false} />
+      <img src={img.src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', pointerEvents:'none' }} draggable={false} />
       {selected && corners.map(({ c, s }) => (
         <div key={c}
           onMouseDown={e => startResize(c, e)}
@@ -133,7 +133,7 @@ function ImageControls({ img, pageId, onUpdate, onDelete, onDeselect }) {
   return (
     <div style={{ background:'#1a2035', border:'1px solid rgba(74,144,217,0.4)', borderRadius:14, padding:'14px 16px', marginTop:10, display:'flex', flexDirection:'column', gap:10 }}>
       <div style={{ fontSize:11, color:'#778', fontWeight:800, textTransform:'uppercase', letterSpacing:1 }}>
-        📍 Snap Picture To... (or drag it on the page · pull blue corners to resize)
+        📍 Snap Picture To... (then drag to reposition · pull blue corners to show more or less of the image)
       </div>
       <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
         {IMG_POSITIONS.map(pos => (
