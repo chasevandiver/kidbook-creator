@@ -4,7 +4,7 @@ import { supabase } from '../supabase';
 import { TEST_BOOK, ACTUAL_BOOK } from '../data/barryBook';
 
 const DEBOUNCE_MS = 2500;
-const SEED_KEY = 'barry_seeded_v2'; // bumped version so it re-seeds
+const SEED_KEY = 'barry_seeded_v3'; // bump this to force a fresh re-seed
 
 export function useCloud(user) {
   const [books, setBooks] = useState([]);
@@ -16,11 +16,8 @@ export function useCloud(user) {
   const seedBooks = useCallback(async () => {
     if (localStorage.getItem(SEED_KEY)) return;
     try {
-      // Delete any old barry books first to avoid duplicates
-      await supabase.from('books')
-        .delete()
-        .eq('user_id', user.id)
-        .ilike('title', '%Barry is Terrific%');
+      // Delete ALL existing books for this user (cleans up duplicates)
+      await supabase.from('books').delete().eq('user_id', user.id);
 
       // Insert TEST book
       await supabase.from('books').insert({
@@ -50,27 +47,15 @@ export function useCloud(user) {
     if (!user) return;
     setLoadingBooks(true);
     try {
+      if (!localStorage.getItem(SEED_KEY)) {
+        await seedBooks();
+      }
       const { data, error } = await supabase
         .from('books')
         .select('id, title, trim_size, updated_at, share_id')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
-
-      if (!error) {
-        const needsSeed = !localStorage.getItem(SEED_KEY);
-        if (needsSeed) {
-          await seedBooks();
-          // Reload after seeding
-          const { data: data2 } = await supabase
-            .from('books')
-            .select('id, title, trim_size, updated_at, share_id')
-            .eq('user_id', user.id)
-            .order('updated_at', { ascending: false });
-          setBooks(data2 || []);
-        } else {
-          setBooks(data || []);
-        }
-      }
+      if (!error) setBooks(data || []);
     } catch (e) {
       console.error('loadBooks error:', e);
     }
