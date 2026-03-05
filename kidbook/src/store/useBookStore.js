@@ -75,8 +75,10 @@ export function useBookStore() {
   const addPage = useCallback((layoutId = 'text-only') => {
     setBookSave(b => {
       const pg = makePage(layoutId, b.trimSize, b.fontFamily);
-      const newPages = [...b.pages, pg];
-      return { ...b, pages: newPages, currentPageIdx: newPages.length - 1 };
+      const insertAfter = b.currentPageIdx;
+      const newPages = [...b.pages];
+      newPages.splice(insertAfter + 1, 0, pg);
+      return { ...b, pages: newPages, currentPageIdx: insertAfter + 1 };
     });
   }, [setBookSave]);
 
@@ -155,6 +157,18 @@ export function useBookStore() {
     setBookSave(b => ({ ...b, pages: b.pages.map(p => p.id === pageId ? { ...p, overlays: (p.overlays || []).filter(o => o.id !== overlayId) } : p) }));
   }, [setBookSave]);
 
+  const applyFontToAllPages = useCallback((fontFamily) => {
+    setBookSave(b => ({
+      ...b,
+      fontFamily,
+      pages: b.pages.map(p => ({
+        ...p,
+        fontFamily,
+        overlays: (p.overlays || []).map(o => ({ ...o, fontFamily })),
+      })),
+    }));
+  }, [setBookSave]);
+
   return {
     book, TRIM_SIZES, FONTS, LAYOUTS, OVERLAY_STYLES, BLEED, MARGIN,
     undo, canUndo: historyIdxRef.current > 0,
@@ -162,6 +176,7 @@ export function useBookStore() {
     setCurrentPage, updatePage, addPage, deletePage, duplicatePage, movePage, changePageLayout,
     addImage, updateImage, deleteImage,
     addOverlay, updateOverlay, deleteOverlay,
+    applyFontToAllPages,
     currentPage: book.pages[book.currentPageIdx] || null,
   };
 }

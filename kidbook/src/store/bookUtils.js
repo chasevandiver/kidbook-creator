@@ -58,6 +58,8 @@ export function makePage(layoutId = 'text-only', trimSize = '8x8', fontFamily = 
     textColor: '#1a1a2e',
     textAlign: layoutId === 'title-page' ? 'center' : 'left',
     textZone: tz ? { ...tz } : null,
+    textMode: 'whole',
+    textSegments: [],
     images,
     overlays: [],
     bgColor: '#ffffff',

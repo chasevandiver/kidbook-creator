@@ -1,5 +1,6 @@
 // components/PageCanvas.js
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { v4 as uuid } from 'uuid';
 import { LAYOUTS, FONTS, OVERLAY_STYLES, TRIM_SIZES } from '../store/bookUtils';
 
 const HANDLE_SIZE = 22;
@@ -282,16 +283,40 @@ function OverlayItem({ overlay, pageId, onUpdate, onDelete, canvasW, canvasH, se
 const fb = bg => ({ background:bg,color:'white',border:'none',borderRadius:7,padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:700,boxShadow:'0 2px 8px rgba(0,0,0,0.5)',whiteSpace:'nowrap' });
 const sm = { background:'rgba(255,255,255,0.12)',color:'white',border:'1px solid rgba(255,255,255,0.15)',borderRadius:5,padding:'3px 7px',fontSize:11,fontWeight:700,cursor:'pointer' };
 
+// ── Helper: split text into sentences ─────────────────────────────────────────
+function splitIntoSentences(text, defaultFontSize) {
+  if (!text || !text.trim()) {
+    return [{ id: uuid(), text: '', fontSize: defaultFontSize }];
+  }
+  // Match sentence-ending groups; preserve trailing whitespace
+  const parts = [];
+  const regex = /[^.!?\n]*[.!?\n]+[\s]*/g;
+  let match;
+  let lastIndex = 0;
+  while ((match = regex.exec(text)) !== null) {
+    parts.push(match[0]);
+    lastIndex = regex.lastIndex;
+  }
+  // Capture any trailing text without punctuation
+  const remainder = text.slice(lastIndex).trim();
+  if (remainder) parts.push(remainder);
+  if (parts.length === 0) parts.push(text);
+  return parts.map(t => ({ id: uuid(), text: t, fontSize: defaultFontSize }));
+}
+
 // ── Main PageCanvas ───────────────────────────────────────────────────────────
-export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, onDeleteImage, onChangeLayout, onAddOverlay, onUpdateOverlay, onDeleteOverlay, trimSize, MARGIN, bookFontFamily }) {
+export default function PageCanvas({ page, onUpdate, onChangeFontFamily, onAddImage, onUpdateImage, onDeleteImage, onChangeLayout, onAddOverlay, onUpdateOverlay, onDeleteOverlay, trimSize, MARGIN, bookFontFamily }) {
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef  = useRef(null);
-  const [editingZone, setEditingZone]         = useState(false);
-  const [selectedImageId, setSelectedImageId] = useState(null);
-  const [selectedOverlayId, setSelectedOverlayId] = useState(null);
-  const [textZoneSelected, setTextZoneSelected] = useState(false);
-  const [canvasSize, setCanvasSize]           = useState({ w:600, h:800 });
+  const [editingZone, setEditingZone]               = useState(false);
+  const [selectedImageId, setSelectedImageId]       = useState(null);
+  const [selectedOverlayId, setSelectedOverlayId]   = useState(null);
+  const [textZoneSelected, setTextZoneSelected]     = useState(false);
+  const [canvasSize, setCanvasSize]                 = useState({ w:600, h:800 });
+  // Sentence-mode state
+  const [selectedSegmentId, setSelectedSegmentId]   = useState(null);
+  const [editingSegmentId, setEditingSegmentId]     = useState(null);
 
   // Always read trimSize fresh — never fall back to a wrong default
   const sizes = TRIM_SIZES[trimSize] || TRIM_SIZES['8x10'];
@@ -306,10 +331,18 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
     return () => obs.disconnect();
   }, []);
 
+  // Reset sentence selection when page changes
+  useEffect(() => {
+    setSelectedSegmentId(null);
+    setEditingSegmentId(null);
+  }, [page.id]);
+
   const tz = page.textZone;
   const pageFontFamily  = page.fontFamily || bookFontFamily || 'Georgia, serif';
   const fontScale       = canvasSize.h / (trimH * 96);
   const displayFontSize = Math.max(7, (page.fontSize || 24) * fontScale);
+  const isSentenceMode  = page.textMode === 'sentence';
+  const textSegments    = page.textSegments || [];
 
   const handleFileUpload = e => {
     const file = e.target.files[0]; if (!file) return;
@@ -321,8 +354,39 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
   const clearSelection = e => {
     if (e.target === containerRef.current || e.target.dataset.bg) {
       setSelectedImageId(null); setSelectedOverlayId(null); setTextZoneSelected(false);
+      setSelectedSegmentId(null);
     }
   };
+
+  // Toggle sentence mode on/off
+  const toggleSentenceMode = () => {
+    if (isSentenceMode) {
+      // Switch back to whole: join all segments into page.text
+      const joined = textSegments.map(s => s.text).join('');
+      onUpdate(page.id, { textMode: 'whole', textSegments: [], text: joined || page.text });
+      setSelectedSegmentId(null);
+      setEditingSegmentId(null);
+    } else {
+      // Switch to sentence mode: parse current text
+      const segs = splitIntoSentences(page.text, page.fontSize || 24);
+      onUpdate(page.id, { textMode: 'sentence', textSegments: segs });
+      setEditingZone(false);
+      setSelectedSegmentId(null);
+    }
+  };
+
+  // Update a single segment's fontSize
+  const changeSegmentFontSize = (delta) => {
+    if (!selectedSegmentId) return;
+    const newSegs = textSegments.map(s =>
+      s.id === selectedSegmentId
+        ? { ...s, fontSize: Math.max(10, Math.min(96, (s.fontSize || page.fontSize || 24) + delta)) }
+        : s
+    );
+    onUpdate(page.id, { textSegments: newSegs });
+  };
+
+  const selectedSeg = textSegments.find(s => s.id === selectedSegmentId);
 
   return (
     <div style={{ position:'relative', width:'100%' }}>
@@ -347,9 +411,37 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
             <button onClick={() => onUpdate(page.id,{fontSize:Math.min(96,(page.fontSize||24)+2)})} style={nudge}>A+ Larger</button>
           </div>
         </div>
+
+        {/* Sentence mode toggle */}
+        <div style={tg}>
+          <span style={tl}>Text Sizing</span>
+          <button onClick={toggleSentenceMode}
+            title={isSentenceMode ? 'Switch to whole-text sizing' : 'Switch to per-sentence sizing'}
+            style={{ ...nudge, background: isSentenceMode ? '#4a90d9' : 'rgba(255,255,255,0.1)', fontSize: 11, whiteSpace:'nowrap' }}>
+            {isSentenceMode ? '📝 By Sentence ✓' : '📝 By Sentence'}
+          </button>
+        </div>
+
+        {/* Per-sentence font size control — shown only when a sentence is selected */}
+        {isSentenceMode && selectedSeg && (
+          <div style={tg}>
+            <span style={tl}>Sentence Size</span>
+            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <button onClick={() => changeSegmentFontSize(-2)} style={nudge}>A−</button>
+              <span style={{color:'#fff',fontWeight:800,minWidth:24,textAlign:'center'}}>{selectedSeg.fontSize || page.fontSize || 24}</span>
+              <button onClick={() => changeSegmentFontSize(2)} style={nudge}>A+</button>
+            </div>
+          </div>
+        )}
+
         <div style={tg}>
           <span style={tl}>Text Style</span>
-          <select value={pageFontFamily} onChange={e=>onUpdate(page.id,{fontFamily:e.target.value})}
+          <select value={pageFontFamily}
+            onChange={e => {
+              // Apply font to all pages in the book
+              if (onChangeFontFamily) onChangeFontFamily(e.target.value);
+              else onUpdate(page.id, { fontFamily: e.target.value });
+            }}
             style={{...nudge,padding:'6px 10px',background:'rgba(255,255,255,0.1)',color:'#fff',border:'1px solid rgba(255,255,255,0.2)',borderRadius:7,cursor:'pointer',fontSize:13}}>
             {FONTS.map(f=><option key={f.id} value={f.id} style={{background:'#1a2035',color:'#fff'}}>{f.label}</option>)}
           </select>
@@ -418,10 +510,57 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
           {/* Layout text zone */}
           {tz && (
             <div
-              onClick={e => { e.stopPropagation(); setTextZoneSelected(true); setSelectedImageId(null); setSelectedOverlayId(null); }}
-              onDoubleClick={() => { setTextZoneSelected(false); setEditingZone(true); setTimeout(()=>textareaRef.current?.focus(),30); }}
-              style={{ position:'absolute', left:`${tz.x}%`, top:`${tz.y}%`, width:`${tz.w}%`, height:`${tz.h}%`, boxSizing:'border-box', padding:`${displayFontSize*0.15}px ${displayFontSize*0.25}px`, border: textZoneSelected?'3px solid #f5a623': editingZone?'2px dashed #4a90d9':'2px dashed rgba(74,144,217,0.3)', borderRadius:5, background: editingZone?'rgba(255,255,255,0.95)':'transparent', overflow:'hidden', cursor: editingZone?'text':'pointer', zIndex:50 }}>
-              {editingZone ? (
+              onClick={e => {
+                e.stopPropagation();
+                if (!isSentenceMode) {
+                  setTextZoneSelected(true); setSelectedImageId(null); setSelectedOverlayId(null);
+                }
+              }}
+              onDoubleClick={() => {
+                if (!isSentenceMode) {
+                  setTextZoneSelected(false); setEditingZone(true);
+                  setTimeout(()=>textareaRef.current?.focus(),30);
+                }
+              }}
+              style={{ position:'absolute', left:`${tz.x}%`, top:`${tz.y}%`, width:`${tz.w}%`, height:`${tz.h}%`, boxSizing:'border-box', padding:`${displayFontSize*0.15}px ${displayFontSize*0.25}px`, border: textZoneSelected?'3px solid #f5a623': editingZone?'2px dashed #4a90d9': isSentenceMode?'2px solid rgba(74,144,217,0.5)':'2px dashed rgba(74,144,217,0.3)', borderRadius:5, background: editingZone?'rgba(255,255,255,0.95)':'transparent', overflow:'hidden', cursor: editingZone?'text': isSentenceMode?'default':'pointer', zIndex:50 }}>
+
+              {isSentenceMode ? (
+                /* ── Sentence mode: render each segment as a clickable span ── */
+                <div style={{ width:'100%', height:'100%', overflow:'hidden', lineHeight:1.55, textAlign: page.textAlign || 'left' }}>
+                  {textSegments.length === 0 && (
+                    <span style={{ color:'rgba(0,0,0,0.25)', fontStyle:'italic', fontSize:Math.max(8,displayFontSize*0.6), fontFamily:pageFontFamily }}>
+                      Click "By Sentence ✓" — your text will split into editable sentences.
+                    </span>
+                  )}
+                  {textSegments.map((seg) => {
+                    const segFs = Math.max(7, (seg.fontSize || page.fontSize || 24) * fontScale);
+                    const isSel = selectedSegmentId === seg.id;
+                    const isEd  = editingSegmentId === seg.id;
+                    return (
+                      <span key={seg.id}
+                        onClick={e => { e.stopPropagation(); setSelectedSegmentId(seg.id); setTextZoneSelected(false); }}
+                        onDoubleClick={e => { e.stopPropagation(); setEditingSegmentId(seg.id); setSelectedSegmentId(seg.id); }}
+                        style={{ display:'inline', fontSize:segFs, color:page.textColor||'#1a1a2e', fontFamily:pageFontFamily,
+                          background: isSel && !isEd ? 'rgba(74,144,217,0.18)' : 'transparent',
+                          outline: isSel ? '1px solid rgba(74,144,217,0.6)' : 'none',
+                          borderRadius:2, cursor:'pointer', position:'relative' }}>
+                        {isEd ? (
+                          <input autoFocus value={seg.text}
+                            onChange={e => {
+                              const newSegs = textSegments.map(s => s.id === seg.id ? { ...s, text: e.target.value } : s);
+                              onUpdate(page.id, { textSegments: newSegs });
+                            }}
+                            onBlur={() => setEditingSegmentId(null)}
+                            onClick={e => e.stopPropagation()}
+                            style={{ fontSize:segFs, fontFamily:pageFontFamily, color:page.textColor||'#1a1a2e', border:'none', outline:'2px solid #4a90d9', background:'rgba(255,255,255,0.9)', borderRadius:2, padding:'0 2px', width: Math.max(60, seg.text.length * segFs * 0.55), maxWidth:'100%' }} />
+                        ) : (
+                          seg.text || <span style={{opacity:0.3,fontStyle:'italic',fontSize:Math.max(7,segFs*0.7)}}>…</span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : editingZone ? (
                 <textarea ref={textareaRef} autoFocus value={page.text}
                   onChange={e=>onUpdate(page.id,{text:e.target.value})}
                   onBlur={()=>setEditingZone(false)}
@@ -448,6 +587,13 @@ export default function PageCanvas({ page, onUpdate, onAddImage, onUpdateImage, 
       {/* Text zone controls */}
       {textZoneSelected && (
         <TextControls page={page} onUpdate={onUpdate} onDeselect={() => setTextZoneSelected(false)} />
+      )}
+
+      {/* Sentence mode helper info */}
+      {isSentenceMode && selectedSeg && (
+        <div style={{ marginTop:8, background:'rgba(74,144,217,0.1)', border:'1px solid rgba(74,144,217,0.3)', borderRadius:8, padding:'8px 12px', fontSize:12, color:'#9cf' }}>
+          ✏️ <strong>Selected sentence</strong> — use <strong>Sentence Size A+/A−</strong> in the toolbar to resize just this sentence. Double-click a sentence to edit its text.
+        </div>
       )}
 
       {/* Hint */}

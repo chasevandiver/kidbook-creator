@@ -36,6 +36,7 @@ export default function App() {
     setCurrentPage, updatePage, addPage, deletePage, duplicatePage, movePage, changePageLayout,
     addImage, updateImage, deleteImage,
     addOverlay, updateOverlay, deleteOverlay,
+    applyFontToAllPages,
     currentPage, loadBookData, setTitle,
   } = store;
 
@@ -239,6 +240,7 @@ export default function App() {
                 onUpdateOverlay={updateOverlay}
                 onDeleteOverlay={deleteOverlay}
                 onChangeLayout={changePageLayout}
+                onChangeFontFamily={applyFontToAllPages}
                 trimSize={book.trimSize}
                 TRIM_SIZES={TRIM_SIZES}
                 MARGIN={MARGIN}
