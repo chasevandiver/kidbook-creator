@@ -9,6 +9,7 @@ export default function PageStrip({ pages, currentIdx, onSelect, onAdd, onDelete
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showAddHereMenu, setShowAddHereMenu] = useState(false);
 
   return (
     <div style={{
@@ -58,7 +59,27 @@ export default function PageStrip({ pages, currentIdx, onSelect, onAdd, onDelete
           </div>
 
           {idx === currentIdx && (
-            <div style={{ display:'flex', flexDirection:'column', gap:3, marginTop:4 }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:3, marginTop:4, position: 'relative' }}>
+              {/* Add Page Here button with layout popover */}
+              <button onClick={() => { setShowAddHereMenu(s => !s); setShowAddMenu(false); }} style={pb('#1a5c1a')}>+ Add Page Here</button>
+              {showAddHereMenu && (
+                <div style={{
+                  position: 'absolute', top: 26, left: 0, right: 0,
+                  background: '#1a2035', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 10, padding: 8, zIndex: 600,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+                  display: 'flex', flexDirection: 'column', gap: 3,
+                }}>
+                  <div style={{ color:'#445', fontSize:9, fontWeight:800, textTransform:'uppercase', letterSpacing:1, marginBottom:2 }}>Choose layout</div>
+                  {ADD_LAYOUTS.map(l => (
+                    <button key={l.id} onClick={() => { onAdd(l.id); setShowAddHereMenu(false); }}
+                      style={{ background:'rgba(255,255,255,0.05)', color:'#dde', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, padding:'5px 8px', cursor:'pointer', textAlign:'left', fontSize:11 }}>
+                      <strong style={{color:'#fff'}}>{l.icon} {l.label}</strong>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <button onClick={() => onDuplicate(page.id)} style={pb('#1e4a7a')}>Copy Page</button>
               {pages.length > 1 && (
                 <button onClick={() => { if (window.confirm(`Delete page ${idx+1}?`)) onDelete(page.id); }} style={pb('#6b1a1a')}>Delete Page</button>
@@ -70,7 +91,7 @@ export default function PageStrip({ pages, currentIdx, onSelect, onAdd, onDelete
 
       {/* Add Page button + popover */}
       <div style={{ position: 'relative', marginTop: 6 }}>
-        <button onClick={() => setShowAddMenu(s => !s)} style={{
+        <button onClick={() => { setShowAddMenu(s => !s); setShowAddHereMenu(false); }} style={{
           background: 'linear-gradient(135deg, #4a90d9, #6a4fc8)',
           color: 'white', border: 'none', borderRadius: 9,
           padding: '11px 6px', fontSize: 13, cursor: 'pointer',
